@@ -143,8 +143,49 @@ Scope is enforced via `user_scopes` table + `rbac.js` middleware on every reques
 - [x] Audit logging service
 - [x] Central error handling
 
-## 🔜 Coming Next (Phase 2)
-- [ ] User & role management APIs
-- [ ] Location hierarchy CRUD APIs
+## ✅ Phase 2 — User & Role Management (Super Admin only)
+
+All endpoints require `Authorization: Bearer <accessToken>` for a `SUPER_ADMIN` user.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/users` | List users — query: `page`, `limit`, `role`, `isActive`, `search` |
+| `POST` | `/api/users` | Create user — body: `{ name, email, password, role, scope }` |
+| `GET` | `/api/users/:id` | Get single user + full scope detail |
+| `PATCH` | `/api/users/:id` | Update name/email/role/scope |
+| `PATCH` | `/api/users/:id/deactivate` | Soft-deactivate user + revoke tokens |
+| `PATCH` | `/api/users/:id/activate` | Reactivate a deactivated user |
+| `PATCH` | `/api/users/:id/reset-password` | Admin sets a new password — body: `{ newPassword }` |
+
+### `scope` object shape (used in create/update)
+```json
+{
+  "stateIds": ["uuid-of-state"],
+  "districtIds": ["uuid-of-district"],
+  "officeIds": ["uuid-of-office"]
+}
+```
+- `SUPER_ADMIN` — scope ignored (full access)
+- `STATE_ADMIN` — requires ≥1 `stateIds`
+- `DISTRICT_OBSERVER` — requires ≥1 `districtIds`
+- `OFFICE_OBSERVER` — requires ≥1 `officeIds`
+
+> Note: scope IDs must reference existing States/Districts/Offices.
+> Location CRUD endpoints (to create/list these) are coming in the next step.
+
+### Example — create a District Observer
+```json
+POST /api/users
+{
+  "name": "Bundi District Observer",
+  "email": "bundi.observer@election-surveillance.in",
+  "password": "SecurePass123",
+  "role": "DISTRICT_OBSERVER",
+  "scope": { "districtIds": ["<bundi-district-uuid>"] }
+}
+```
+
+## 🔜 Coming Next (Phase 2 continued)
+- [ ] Location hierarchy CRUD APIs (States/Districts/Offices/Cameras)
 - [ ] Stream service (role-scoped HLS URLs)
 - [ ] Recording service (S3 signed URLs)

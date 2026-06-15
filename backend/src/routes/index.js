@@ -6,13 +6,14 @@ const express = require('express');
 const router = express.Router();
 
 const authRoutes = require('./auth.routes');
+const userRoutes = require('./user.routes');
 
 router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
 
 // Placeholder routes for upcoming phases:
 // router.use('/locations', locationRoutes);
 // router.use('/cameras', cameraRoutes);
-// router.use('/users', userRoutes);
 // router.use('/recordings', recordingRoutes);
 
 // Health check
