@@ -1,0 +1,245 @@
+// ============================================================
+// ELECTION SURVEILLANCE PLATFORM — DATABASE SCHEMA
+// PostgreSQL + Prisma ORM
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  SUPER_ADMIN      // Full access — all states, all cameras, user management
+  STATE_ADMIN      // All districts/offices/cameras within their state
+  DISTRICT_OBSERVER // All offices/cameras within their district
+  OFFICE_OBSERVER  // Only cameras in their assigned office
+}
+
+enum StreamStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum RecordingStatus {
+  AVAILABLE
+  PROCESSING
+  ARCHIVED
+  DELETED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  VIEW_STREAM
+  VIEW_RECORDING
+  CREATE_USER
+  UPDATE_USER
+  DELETE_USER
+  ASSIGN_ROLE
+  CREATE_LOCATION
+  UPDATE_LOCATION
+  DELETE_LOCATION
+  CREATE_CAMERA
+  UPDATE_CAMERA
+  DELETE_CAMERA
+}
+
+// ============================================================
+// LOCATION HIERARCHY
+// State → District → Office → Camera
+// ============================================================
+
+model State {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique  // e.g. "UP", "MH", "RJ"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  districts  District[]
+  userScopes UserScope[]
+
+  @@map("states")
+}
+
+model District {
+  id        String   @id @default(uuid())
+  name      String
+  code      String                         // e.g. "KOTA", "JAIPUR"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stateId String
+  state   State  @relation(fields: [stateId], references: [id], onDelete: Cascade)
+
+  offices    Office[]
+  userScopes UserScope[]
+
+  @@unique([stateId, code])
+  @@map("districts")
+}
+
+model Office {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  districtId String
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  cameras    Camera[]
+  userScopes UserScope[]
+
+  @@map("offices")
+}
+
+model Camera {
+  id          String       @id @default(uuid())
+  name        String                           // e.g. "Main Hall - Cam 1"
+  description String?
+  rtspUrl     String                           // Raw RTSP URL (never sent to client)
+  hlsUrl      String?                          // Transcoded HLS URL served to client
+  status      StreamStatus @default(ACTIVE)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  officeId String
+  office   Office @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  recordings  Recording[]
+  auditLogs   AuditLog[]
+
+  @@map("cameras")
+}
+
+// ============================================================
+// USERS & AUTH
+// ============================================================
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(OFFICE_OBSERVER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Who created this user (admin trail)
+  createdById String?
+  createdBy   User?   @relation("CreatedUsers", fields: [createdById], references: [id])
+  createdUsers User[] @relation("CreatedUsers")
+
+  refreshTokens RefreshToken[]
+  userScopes    UserScope[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+// Stores valid refresh tokens (blacklist-able on logout)
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// USER SCOPE — Which locations a user can access
+// A user with SUPER_ADMIN role ignores this (sees everything)
+// Others are restricted to rows in this table
+// ============================================================
+
+model UserScope {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Exactly ONE of these will be set, depending on role
+  stateId    String?
+  state      State?    @relation(fields: [stateId], references: [id])
+
+  districtId String?
+  district   District? @relation(fields: [districtId], references: [id])
+
+  officeId   String?
+  office     Office?   @relation(fields: [officeId], references: [id])
+
+  @@unique([userId, stateId])
+  @@unique([userId, districtId])
+  @@unique([userId, officeId])
+  @@map("user_scopes")
+}
+
+// ============================================================
+// RECORDINGS — Stored on AWS S3
+// ============================================================
+
+model Recording {
+  id          String          @id @default(uuid())
+  s3Key       String          @unique   // e.g. "recordings/RJ/KOTA/office-1/2024-11-15/cam-1_14-00.mp4"
+  s3Bucket    String
+  filename    String
+  durationSec Int?                      // Duration in seconds
+  fileSizeMb  Float?
+  status      RecordingStatus @default(AVAILABLE)
+  recordedAt  DateTime                  // When the recording started
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  cameraId String
+  camera   Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([cameraId, recordedAt])
+  @@map("recordings")
+}
+
+// ============================================================
+// AUDIT LOG — Immutable access trail
+// ============================================================
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  action    AuditAction
+  ipAddress String?
+  userAgent String?
+  metadata  Json?       // Extra context (e.g. recording filename accessed)
+  createdAt DateTime    @default(now())
+
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  // Optional: link to specific camera accessed
+  cameraId String?
+  camera   Camera? @relation(fields: [cameraId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([cameraId, createdAt])
+  @@map("audit_logs")
+}
