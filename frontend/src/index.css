@@ -1,0 +1,73 @@
+/* ============================================================
+   GLOBAL STYLES — Election Surveillance Platform
+   ============================================================ */
+:root {
+  --bg:           #080c10;
+  --surface:      #0d1520;
+  --surface2:     #111d2e;
+  --surface3:     #162540;
+  --border:       #1a3050;
+  --border2:      #243d5e;
+  --accent:       #00c8ff;
+  --accent2:      #00ff9d;
+  --accent3:      #ff6b35;
+  --warn:         #ffcc00;
+  --danger:       #ff4d6d;
+  --purple:       #b87bff;
+  --text:         #c8dff0;
+  --text-dim:     #4a7090;
+  --text-bright:  #eaf6ff;
+  --text-muted:   #2d4a6a;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; background: var(--bg); color: var(--text); font-family: 'Barlow', sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 5px; border: 1px solid transparent; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: all 0.15s; white-space: nowrap; text-decoration: none; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #080c10; border-color: var(--accent); }
+.btn-primary:hover:not(:disabled) { background: #00aadd; box-shadow: 0 0 16px rgba(0,200,255,0.3); }
+.btn-secondary { background: transparent; color: var(--accent); border-color: var(--accent); }
+.btn-secondary:hover:not(:disabled) { background: rgba(0,200,255,0.08); }
+.btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+.btn-danger:hover:not(:disabled) { background: rgba(255,77,109,0.08); }
+.btn-ghost { background: transparent; color: var(--text-dim); border-color: var(--border); }
+.btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--border2); background: var(--surface2); }
+.btn-sm { padding: 5px 12px; font-size: 11px; }
+.btn-lg { padding: 12px 24px; font-size: 15px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.card-header { padding: 12px 18px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.card-body { padding: 18px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase; }
+.form-input { background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 10px 14px; color: var(--text-bright); font-family: 'Barlow', sans-serif; font-size: 14px; outline: none; transition: border-color 0.15s, box-shadow 0.15s; width: 100%; }
+.form-input::placeholder { color: var(--text-muted); }
+.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,200,255,0.1); }
+.form-input.error { border-color: var(--danger); }
+.form-error { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--danger); }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; border-radius: 3px; border: 1px solid; white-space: nowrap; }
+.badge-blue   { color: var(--accent);  border-color: rgba(0,200,255,0.3);  background: rgba(0,200,255,0.08); }
+.badge-green  { color: var(--accent2); border-color: rgba(0,255,157,0.3);  background: rgba(0,255,157,0.08); }
+.badge-orange { color: var(--accent3); border-color: rgba(255,107,53,0.3); background: rgba(255,107,53,0.08); }
+.badge-yellow { color: var(--warn);    border-color: rgba(255,204,0,0.3);  background: rgba(255,204,0,0.08); }
+.badge-red    { color: var(--danger);  border-color: rgba(255,77,109,0.3); background: rgba(255,77,109,0.08); }
+.badge-purple { color: var(--purple);  border-color: rgba(184,123,255,0.3);background: rgba(184,123,255,0.08); }
+.badge-dim    { color: var(--text-dim);border-color: var(--border);        background: var(--surface2); }
+table { width: 100%; border-collapse: collapse; }
+thead tr { border-bottom: 1px solid var(--border2); }
+th { padding: 10px 14px; text-align: left; font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 1.5px; color: var(--text-dim); text-transform: uppercase; white-space: nowrap; }
+td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text); font-size: 13px; }
+tbody tr:hover td { background: rgba(255,255,255,0.02); }
+tbody tr:last-child td { border-bottom: none; }
+.spinner { width: 20px; height: 20px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeUp  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 0.3s ease both; }
+.fade-up { animation: fadeUp 0.35s ease both; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.status-dot.active { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+.status-dot.inactive { background: var(--text-dim); }
+.status-dot.maintenance { background: var(--warn); }
+@media (max-width: 768px) { .hide-mobile { display: none !important; } }
