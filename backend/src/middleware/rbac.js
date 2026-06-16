@@ -81,6 +81,50 @@ function buildCameraScopeFilter(scope) {
 }
 
 /**
+ * buildStateScopeFilter — Prisma `where` fragment restricting State queries
+ * to the user's accessible scope.
+ *
+ * A state is accessible if:
+ *  - user is SUPER_ADMIN (no filter), OR
+ *  - state.id is in stateIds, OR
+ *  - any of its districts is in districtIds, OR
+ *  - any of its districts has an office in officeIds
+ */
+function buildStateScopeFilter(scope) {
+  if (scope.isSuperAdmin) return {};
+
+  return {
+    OR: [
+      { id: { in: scope.stateIds } },
+      { districts: { some: { id: { in: scope.districtIds } } } },
+      { districts: { some: { offices: { some: { id: { in: scope.officeIds } } } } } },
+    ],
+  };
+}
+
+/**
+ * buildDistrictScopeFilter — Prisma `where` fragment restricting District
+ * queries to the user's accessible scope.
+ *
+ * A district is accessible if:
+ *  - user is SUPER_ADMIN (no filter), OR
+ *  - district.id is in districtIds, OR
+ *  - district.stateId is in stateIds, OR
+ *  - any of its offices is in officeIds
+ */
+function buildDistrictScopeFilter(scope) {
+  if (scope.isSuperAdmin) return {};
+
+  return {
+    OR: [
+      { id: { in: scope.districtIds } },
+      { stateId: { in: scope.stateIds } },
+      { offices: { some: { id: { in: scope.officeIds } } } },
+    ],
+  };
+}
+
+/**
  * buildOfficeScopeFilter — restricts Office queries to user's scope
  */
 function buildOfficeScopeFilter(scope) {
@@ -128,7 +172,9 @@ async function checkCameraAccess(req, cameraId) {
 module.exports = {
   requireRole,
   loadUserScope,
-  buildCameraScopeFilter,
+  buildStateScopeFilter,
+  buildDistrictScopeFilter,
   buildOfficeScopeFilter,
+  buildCameraScopeFilter,
   checkCameraAccess,
 };
