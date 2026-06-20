@@ -1,5 +1,6 @@
 // ============================================================
-// AUTH STORE — Zustand global state for authentication
+// AUTH STORE — Zustand store for authentication state
+// Uses localStorage so login persists across browser refreshes
 // ============================================================
 
 import { create } from 'zustand';
@@ -10,42 +11,63 @@ const useAuthStore = create((set, get) => ({
   isAuthenticated: false,
   isLoading: true,
 
-  // Called on app start — restores session from sessionStorage
+  // Called once on app mount — restores session from localStorage
   init: async () => {
-    const token = sessionStorage.getItem('accessToken');
-    if (!token) {
-      set({ isLoading: false });
+    const accessToken = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+
+    if (!accessToken || !refreshToken) {
+      set({ isLoading: false, isAuthenticated: false, user: null });
       return;
     }
+
     try {
-      const { data } = await authApi.me();
-      set({ user: data.data, isAuthenticated: true, isLoading: false });
+      const res = await authApi.me();
+      set({ user: res.data.data, isAuthenticated: true, isLoading: false });
     } catch {
-      sessionStorage.clear();
-      set({ user: null, isAuthenticated: false, isLoading: false });
+      // Access token expired — try refresh
+      try {
+        const res = await authApi.refresh(refreshToken);
+        localStorage.setItem('accessToken', res.data.data.accessToken);
+        localStorage.setItem('refreshToken', res.data.data.refreshToken);
+
+        const me = await authApi.me();
+        set({ user: me.data.data, isAuthenticated: true, isLoading: false });
+      } catch {
+        // Refresh failed — clear everything
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        set({ isLoading: false, isAuthenticated: false, user: null });
+      }
     }
   },
 
+  // Login — store tokens in localStorage
   login: async (email, password) => {
-    const { data } = await authApi.login({ email, password });
-    const { accessToken, refreshToken, user } = data.data;
-    sessionStorage.setItem('accessToken', accessToken);
-    sessionStorage.setItem('refreshToken', refreshToken);
+    const res = await authApi.login({ email, password });
+    const { accessToken, refreshToken, user } = res.data.data;
+
+    localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+
     set({ user, isAuthenticated: true });
+    return user;
   },
 
+  // Logout — revoke token + clear localStorage
   logout: async () => {
-    const refreshToken = sessionStorage.getItem('refreshToken');
-    try { await authApi.logout(refreshToken); } catch {}
-    sessionStorage.clear();
+    const refreshToken = localStorage.getItem('refreshToken');
+    try {
+      if (refreshToken) await authApi.logout(refreshToken);
+    } catch { /* ignore logout errors */ }
+
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     set({ user: null, isAuthenticated: false });
   },
 
-  // Helper — check if user has a specific role
-  hasRole: (...roles) => {
-    const { user } = get();
-    return user && roles.includes(user.role);
-  },
+  // Update user in store (e.g. after profile change)
+  setUser: (user) => set({ user }),
 }));
 
 export default useAuthStore;

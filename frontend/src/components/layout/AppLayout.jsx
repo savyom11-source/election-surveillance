@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, MapPin, Film, Users, Video,
-  ShieldCheck, LogOut, Menu, Bell
+  ShieldCheck, LogOut, Menu, Bell, ClipboardList, Map
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
@@ -25,8 +25,10 @@ const NAV_ITEMS = [
 ];
 
 const ADMIN_ITEMS = [
-  { to: '/admin/users',   icon: Users, label: 'Users'   },
-  { to: '/admin/cameras', icon: Video, label: 'Cameras' },
+  { to: '/admin/users',      icon: Users,         label: 'Users'     },
+  { to: '/admin/cameras',    icon: Video,         label: 'Cameras'   },
+  { to: '/admin/locations',  icon: Map,           label: 'Locations' },
+  { to: '/admin/audit',      icon: ClipboardList, label: 'Audit Log' },
 ];
 
 export default function AppLayout() {
@@ -52,7 +54,6 @@ export default function AppLayout() {
         borderRight: '1px solid var(--border)',
         flexShrink: 0,
       }}>
-
         {/* Logo */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(0,200,255,0.1)', border: '1px solid rgba(0,200,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -141,21 +142,18 @@ export default function AppLayout() {
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg)' }}>
 
-      {/* Desktop sidebar — always visible on wide screens */}
+      {/* Sidebar */}
       <SidebarContent />
 
-      {/* Mobile sidebar overlay */}
+      {/* Mobile overlay */}
       {mobileOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)' }}
-            onClick={() => setMobileOpen(false)} />
-          <div style={{ position: 'relative', zIndex: 10 }}>
-            <SidebarContent />
-          </div>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)' }} onClick={() => setMobileOpen(false)} />
+          <div style={{ position: 'relative', zIndex: 10 }}><SidebarContent /></div>
         </div>
       )}
 
-      {/* Main content area */}
+      {/* Main content */}
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
 
         {/* Topbar */}
@@ -164,25 +162,19 @@ export default function AppLayout() {
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}>
             <Menu size={18} />
           </button>
-
           <div style={{ fontFamily: 'Share Tech Mono', fontSize: 10, color: 'var(--text-dim)', letterSpacing: 2 }}>
             ELECTION COMMISSION OF INDIA
           </div>
-
           <div style={{ flex: 1 }} />
-
           <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}>
             <Bell size={16} />
           </button>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', borderRadius: 5, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
             <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,200,255,0.1)', border: '1px solid rgba(0,200,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', fontWeight: 700, fontSize: 11 }}>
               {user?.name?.[0]?.toUpperCase()}
             </div>
             <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{user?.name}</span>
-            <span style={{ fontSize: 9, color: roleInfo.color, fontFamily: 'Share Tech Mono' }}>
-              {roleInfo.label}
-            </span>
+            <span style={{ fontSize: 9, color: roleInfo.color, fontFamily: 'Share Tech Mono' }}>{roleInfo.label}</span>
           </div>
         </header>
 
