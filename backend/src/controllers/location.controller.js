@@ -1,9 +1,9 @@
 // ============================================================
-// LOCATION CONTROLLER — States / Districts / Offices CRUD + Tree
-//
-// Read endpoints: scoped to the requesting user's accessible locations.
-// Write endpoints (create/update/delete): gated to SUPER_ADMIN at the
-// route level.
+// LOCATION CONTROLLER — States / Districts / Offices CRUD
+// With CASCADE soft-delete:
+//   Deactivate State   → deactivates all its Districts, Offices, Cameras
+//   Deactivate District → deactivates all its Offices, Cameras
+//   Deactivate Office  → deactivates all its Cameras
 // ============================================================
 
 const prisma = require('../config/prisma');
@@ -15,7 +15,6 @@ const {
   buildOfficeScopeFilter,
 } = require('../middleware/rbac');
 
-// Helper — should inactive records be included? (?includeInactive=true)
 function activeFilter(req) {
   return req.query.includeInactive === 'true' ? {} : { isActive: true };
 }
@@ -26,26 +25,20 @@ function activeFilter(req) {
 
 const getStates = asyncHandler(async (req, res) => {
   const where = { ...buildStateScopeFilter(req.scope), ...activeFilter(req) };
-
   const states = await prisma.state.findMany({
     where,
     orderBy: { name: 'asc' },
     include: { _count: { select: { districts: true } } },
   });
-
   res.json({ success: true, data: states });
 });
 
 const getStateById = asyncHandler(async (req, res) => {
-  const where = { id: req.params.id, ...buildStateScopeFilter(req.scope) };
-
   const state = await prisma.state.findFirst({
-    where,
+    where: { id: req.params.id, ...buildStateScopeFilter(req.scope) },
     include: { _count: { select: { districts: true } } },
   });
-
   if (!state) throw new NotFoundError('State not found');
-
   res.json({ success: true, data: state });
 });
 
@@ -60,7 +53,7 @@ const createState = asyncHandler(async (req, res) => {
   await logAudit({
     userId: req.user.userId,
     action: 'CREATE_LOCATION',
-    metadata: { type: 'state', id: state.id, name: state.name, code: state.code },
+    metadata: { type: 'state', id: state.id, name: state.name },
     req,
   });
 
@@ -76,10 +69,7 @@ const updateState = asyncHandler(async (req, res) => {
 
   if (name || code) {
     const conflict = await prisma.state.findFirst({
-      where: {
-        id: { not: id },
-        OR: [...(name ? [{ name }] : []), ...(code ? [{ code }] : [])],
-      },
+      where: { id: { not: id }, OR: [...(name ? [{ name }] : []), ...(code ? [{ code }] : [])] },
     });
     if (conflict) throw new ConflictError('A state with this name or code already exists');
   }
@@ -109,16 +99,61 @@ const deleteState = asyncHandler(async (req, res) => {
   const existing = await prisma.state.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('State not found');
 
-  await prisma.state.update({ where: { id }, data: { isActive: false } });
+  // ---- CASCADE SOFT DELETE ----
+  // 1. Find all district IDs under this state
+  const districts = await prisma.district.findMany({
+    where: { stateId: id },
+    select: { id: true },
+  });
+  const districtIds = districts.map((d) => d.id);
+
+  // 2. Find all office IDs under those districts
+  const offices = districtIds.length
+    ? await prisma.office.findMany({
+        where: { districtId: { in: districtIds } },
+        select: { id: true },
+      })
+    : [];
+  const officeIds = offices.map((o) => o.id);
+
+  // 3. Deactivate all in a single transaction
+  await prisma.$transaction([
+    // Deactivate all cameras under those offices
+    ...(officeIds.length
+      ? [prisma.camera.updateMany({ where: { officeId: { in: officeIds } }, data: { isActive: false } })]
+      : []),
+    // Deactivate all offices under those districts
+    ...(officeIds.length
+      ? [prisma.office.updateMany({ where: { id: { in: officeIds } }, data: { isActive: false } })]
+      : []),
+    // Deactivate all districts under this state
+    ...(districtIds.length
+      ? [prisma.district.updateMany({ where: { id: { in: districtIds } }, data: { isActive: false } })]
+      : []),
+    // Deactivate the state itself
+    prisma.state.update({ where: { id }, data: { isActive: false } }),
+  ]);
 
   await logAudit({
     userId: req.user.userId,
     action: 'DELETE_LOCATION',
-    metadata: { type: 'state', id, name: existing.name },
+    metadata: {
+      type: 'state', id,
+      name: existing.name,
+      cascadeDeactivated: {
+        districts: districtIds.length,
+        offices: officeIds.length,
+      },
+    },
     req,
   });
 
-  res.json({ success: true, data: { message: 'State deactivated successfully' } });
+  res.json({
+    success: true,
+    data: {
+      message: `State "${existing.name}" deactivated along with ${districtIds.length} district(s) and ${officeIds.length} office(s)`,
+    },
+  });
 });
 
 // ============================================================
@@ -127,13 +162,11 @@ const deleteState = asyncHandler(async (req, res) => {
 
 const getDistricts = asyncHandler(async (req, res) => {
   const { stateId } = req.query;
-
   const where = {
     ...buildDistrictScopeFilter(req.scope),
     ...(stateId && { stateId }),
     ...activeFilter(req),
   };
-
   const districts = await prisma.district.findMany({
     where,
     orderBy: { name: 'asc' },
@@ -142,23 +175,18 @@ const getDistricts = asyncHandler(async (req, res) => {
       _count: { select: { offices: true } },
     },
   });
-
   res.json({ success: true, data: districts });
 });
 
 const getDistrictById = asyncHandler(async (req, res) => {
-  const where = { id: req.params.id, ...buildDistrictScopeFilter(req.scope) };
-
   const district = await prisma.district.findFirst({
-    where,
+    where: { id: req.params.id, ...buildDistrictScopeFilter(req.scope) },
     include: {
       state: { select: { id: true, name: true, code: true } },
       _count: { select: { offices: true } },
     },
   });
-
   if (!district) throw new NotFoundError('District not found');
-
   res.json({ success: true, data: district });
 });
 
@@ -176,7 +204,7 @@ const createDistrict = asyncHandler(async (req, res) => {
   await logAudit({
     userId: req.user.userId,
     action: 'CREATE_LOCATION',
-    metadata: { type: 'district', id: district.id, name: district.name, code: district.code, stateId },
+    metadata: { type: 'district', id: district.id, name: district.name },
     req,
   });
 
@@ -190,18 +218,9 @@ const updateDistrict = asyncHandler(async (req, res) => {
   const existing = await prisma.district.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('District not found');
 
-  const effectiveStateId = stateId || existing.stateId;
-
   if (stateId) {
     const state = await prisma.state.findUnique({ where: { id: stateId } });
     if (!state) throw new ValidationError('stateId does not reference an existing state');
-  }
-
-  if (code) {
-    const conflict = await prisma.district.findFirst({
-      where: { id: { not: id }, stateId: effectiveStateId, code },
-    });
-    if (conflict) throw new ConflictError(`A district with code "${code}" already exists in this state`);
   }
 
   const district = await prisma.district.update({
@@ -230,16 +249,44 @@ const deleteDistrict = asyncHandler(async (req, res) => {
   const existing = await prisma.district.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('District not found');
 
-  await prisma.district.update({ where: { id }, data: { isActive: false } });
+  // ---- CASCADE SOFT DELETE ----
+  // 1. Find all office IDs under this district
+  const offices = await prisma.office.findMany({
+    where: { districtId: id },
+    select: { id: true },
+  });
+  const officeIds = offices.map((o) => o.id);
+
+  await prisma.$transaction([
+    // Deactivate all cameras under those offices
+    ...(officeIds.length
+      ? [prisma.camera.updateMany({ where: { officeId: { in: officeIds } }, data: { isActive: false } })]
+      : []),
+    // Deactivate all offices
+    ...(officeIds.length
+      ? [prisma.office.updateMany({ where: { id: { in: officeIds } }, data: { isActive: false } })]
+      : []),
+    // Deactivate the district itself
+    prisma.district.update({ where: { id }, data: { isActive: false } }),
+  ]);
 
   await logAudit({
     userId: req.user.userId,
     action: 'DELETE_LOCATION',
-    metadata: { type: 'district', id, name: existing.name },
+    metadata: {
+      type: 'district', id,
+      name: existing.name,
+      cascadeDeactivated: { offices: officeIds.length },
+    },
     req,
   });
 
-  res.json({ success: true, data: { message: 'District deactivated successfully' } });
+  res.json({
+    success: true,
+    data: {
+      message: `District "${existing.name}" deactivated along with ${officeIds.length} office(s)`,
+    },
+  });
 });
 
 // ============================================================
@@ -248,42 +295,41 @@ const deleteDistrict = asyncHandler(async (req, res) => {
 
 const getOffices = asyncHandler(async (req, res) => {
   const { districtId } = req.query;
-
   const where = {
     ...buildOfficeScopeFilter(req.scope),
     ...(districtId && { districtId }),
     ...activeFilter(req),
   };
-
   const offices = await prisma.office.findMany({
     where,
     orderBy: { name: 'asc' },
     include: {
       district: {
-        select: { id: true, name: true, code: true, state: { select: { id: true, name: true, code: true } } },
+        select: {
+          id: true, name: true, code: true,
+          state: { select: { id: true, name: true, code: true } },
+        },
       },
       _count: { select: { cameras: true } },
     },
   });
-
   res.json({ success: true, data: offices });
 });
 
 const getOfficeById = asyncHandler(async (req, res) => {
-  const where = { id: req.params.id, ...buildOfficeScopeFilter(req.scope) };
-
   const office = await prisma.office.findFirst({
-    where,
+    where: { id: req.params.id, ...buildOfficeScopeFilter(req.scope) },
     include: {
       district: {
-        select: { id: true, name: true, code: true, state: { select: { id: true, name: true, code: true } } },
+        select: {
+          id: true, name: true, code: true,
+          state: { select: { id: true, name: true, code: true } },
+        },
       },
       _count: { select: { cameras: true } },
     },
   });
-
   if (!office) throw new NotFoundError('Office not found');
-
   res.json({ success: true, data: office });
 });
 
@@ -298,7 +344,7 @@ const createOffice = asyncHandler(async (req, res) => {
   await logAudit({
     userId: req.user.userId,
     action: 'CREATE_LOCATION',
-    metadata: { type: 'office', id: office.id, name: office.name, districtId },
+    metadata: { type: 'office', id: office.id, name: office.name },
     req,
   });
 
@@ -343,7 +389,16 @@ const deleteOffice = asyncHandler(async (req, res) => {
   const existing = await prisma.office.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('Office not found');
 
-  await prisma.office.update({ where: { id }, data: { isActive: false } });
+  // ---- CASCADE SOFT DELETE ----
+  await prisma.$transaction([
+    // Deactivate all cameras under this office
+    prisma.camera.updateMany({ where: { officeId: id }, data: { isActive: false } }),
+    // Deactivate the office itself
+    prisma.office.update({ where: { id }, data: { isActive: false } }),
+  ]);
+
+  // Count cameras deactivated for response message
+  const cameraCount = await prisma.camera.count({ where: { officeId: id } });
 
   await logAudit({
     userId: req.user.userId,
@@ -352,12 +407,16 @@ const deleteOffice = asyncHandler(async (req, res) => {
     req,
   });
 
-  res.json({ success: true, data: { message: 'Office deactivated successfully' } });
+  res.json({
+    success: true,
+    data: {
+      message: `Office "${existing.name}" deactivated along with its cameras`,
+    },
+  });
 });
 
 // ============================================================
-// TREE — full hierarchy, filtered to user's scope
-// Used by the frontend Location Browser
+// TREE — full hierarchy filtered to user scope
 // ============================================================
 
 const getLocationTree = asyncHandler(async (req, res) => {
@@ -365,23 +424,17 @@ const getLocationTree = asyncHandler(async (req, res) => {
     where: { ...buildStateScopeFilter(req.scope), isActive: true },
     orderBy: { name: 'asc' },
     select: {
-      id: true,
-      name: true,
-      code: true,
+      id: true, name: true, code: true,
       districts: {
         where: { ...buildDistrictScopeFilter(req.scope), isActive: true },
         orderBy: { name: 'asc' },
         select: {
-          id: true,
-          name: true,
-          code: true,
+          id: true, name: true, code: true,
           offices: {
             where: { ...buildOfficeScopeFilter(req.scope), isActive: true },
             orderBy: { name: 'asc' },
             select: {
-              id: true,
-              name: true,
-              address: true,
+              id: true, name: true, address: true,
               _count: { select: { cameras: true } },
             },
           },
@@ -389,25 +442,12 @@ const getLocationTree = asyncHandler(async (req, res) => {
       },
     },
   });
-
   res.json({ success: true, data: states });
 });
 
 module.exports = {
-  getStates,
-  getStateById,
-  createState,
-  updateState,
-  deleteState,
-  getDistricts,
-  getDistrictById,
-  createDistrict,
-  updateDistrict,
-  deleteDistrict,
-  getOffices,
-  getOfficeById,
-  createOffice,
-  updateOffice,
-  deleteOffice,
+  getStates, getStateById, createState, updateState, deleteState,
+  getDistricts, getDistrictById, createDistrict, updateDistrict, deleteDistrict,
+  getOffices, getOfficeById, createOffice, updateOffice, deleteOffice,
   getLocationTree,
 };
