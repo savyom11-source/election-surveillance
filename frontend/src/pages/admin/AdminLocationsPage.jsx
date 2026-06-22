@@ -1,10 +1,11 @@
 // ============================================================
 // ADMIN LOCATIONS PAGE — Manage States, Districts, Offices
+// With Activate / Deactivate toggle
 // Super Admin only
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { MapPin, Plus, Edit2, Trash2, ChevronRight, ChevronDown, X, Building2, Map } from 'lucide-react';
+import { MapPin, Plus, Edit2, Trash2, X, Building2, Map, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { locationsApi } from '../../api/services';
 
@@ -107,13 +108,14 @@ function OfficeForm({ initial = {}, districts, onSubmit, onClose, loading }) {
 
 // ---- Main Page ----
 export default function AdminLocationsPage() {
-  const [tab, setTab]         = useState('states'); // states | districts | offices
+  const [tab, setTab]         = useState('states');
   const [states, setStates]   = useState([]);
   const [districts, setDistricts] = useState([]);
   const [offices, setOffices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
-  const [modal, setModal]     = useState(null); // null | { type, data }
+  const [actioning, setActioning] = useState(null);
+  const [modal, setModal]     = useState(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -132,7 +134,53 @@ export default function AdminLocationsPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // ---- State handlers ----
+  // ---- Toggle Active/Inactive ----
+  async function toggleState(s) {
+    setActioning(s.id);
+    try {
+      if (s.isActive) {
+        await locationsApi.deleteState(s.id);
+        toast.success(`"${s.name}" deactivated (cascade applied)`);
+      } else {
+        await locationsApi.updateState(s.id, { isActive: true });
+        toast.success(`"${s.name}" reactivated`);
+      }
+      fetchAll();
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Action failed'); }
+    finally { setActioning(null); }
+  }
+
+  async function toggleDistrict(d) {
+    setActioning(d.id);
+    try {
+      if (d.isActive) {
+        await locationsApi.deleteDistrict(d.id);
+        toast.success(`"${d.name}" deactivated (cascade applied)`);
+      } else {
+        await locationsApi.updateDistrict(d.id, { isActive: true });
+        toast.success(`"${d.name}" reactivated`);
+      }
+      fetchAll();
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Action failed'); }
+    finally { setActioning(null); }
+  }
+
+  async function toggleOffice(o) {
+    setActioning(o.id);
+    try {
+      if (o.isActive) {
+        await locationsApi.deleteOffice(o.id);
+        toast.success(`"${o.name}" deactivated`);
+      } else {
+        await locationsApi.updateOffice(o.id, { isActive: true });
+        toast.success(`"${o.name}" reactivated`);
+      }
+      fetchAll();
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Action failed'); }
+    finally { setActioning(null); }
+  }
+
+  // ---- Create handlers ----
   async function handleCreateState(form) {
     setSaving(true);
     try {
@@ -153,13 +201,6 @@ export default function AdminLocationsPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDeleteState(s) {
-    if (!window.confirm(`Deactivate state "${s.name}"? This will also deactivate all districts and offices under it.`)) return;
-    try { await locationsApi.deleteState(s.id); toast.success('State deactivated'); fetchAll(); }
-    catch { toast.error('Failed'); }
-  }
-
-  // ---- District handlers ----
   async function handleCreateDistrict(form) {
     setSaving(true);
     try {
@@ -180,13 +221,6 @@ export default function AdminLocationsPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDeleteDistrict(d) {
-    if (!window.confirm(`Deactivate district "${d.name}"?`)) return;
-    try { await locationsApi.deleteDistrict(d.id); toast.success('District deactivated'); fetchAll(); }
-    catch { toast.error('Failed'); }
-  }
-
-  // ---- Office handlers ----
   async function handleCreateOffice(form) {
     setSaving(true);
     try {
@@ -207,17 +241,32 @@ export default function AdminLocationsPage() {
     finally { setSaving(false); }
   }
 
-  async function handleDeleteOffice(o) {
-    if (!window.confirm(`Deactivate office "${o.name}"?`)) return;
-    try { await locationsApi.deleteOffice(o.id); toast.success('Office deactivated'); fetchAll(); }
-    catch { toast.error('Failed'); }
-  }
-
   const TABS = [
     { key: 'states',    label: 'States',    icon: Map,       count: states.length },
     { key: 'districts', label: 'Districts', icon: MapPin,    count: districts.length },
     { key: 'offices',   label: 'Offices',   icon: Building2, count: offices.length },
   ];
+
+  function ActionButtons({ item, onToggle, onEdit }) {
+    const isActioning = actioning === item.id;
+    return (
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => onEdit(item)}>
+          <Edit2 size={12} />Edit
+        </button>
+        <button
+          className={`btn btn-sm ${item.isActive ? 'btn-danger' : 'btn-secondary'}`}
+          onClick={() => onToggle(item)}
+          disabled={isActioning}>
+          {isActioning
+            ? <div className="spinner" style={{ width: 12, height: 12 }} />
+            : item.isActive
+              ? <><Trash2 size={12} />Deactivate</>
+              : <><CheckCircle size={12} />Reactivate</>}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in" style={{ padding: 24 }}>
@@ -233,7 +282,7 @@ export default function AdminLocationsPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
         {TABS.map(({ key, label, icon: Icon, count }) => (
           <button key={key} onClick={() => setTab(key)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer', color: tab === key ? 'var(--accent)' : 'var(--text-dim)', fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase', transition: 'all 0.15s', marginBottom: -1 }}>
@@ -243,7 +292,7 @@ export default function AdminLocationsPage() {
         ))}
       </div>
 
-      {/* Content */}
+      {/* Table */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200, gap: 12 }}>
           <div className="spinner" />
@@ -253,7 +302,6 @@ export default function AdminLocationsPage() {
         <div className="card">
           <div className="table-wrap">
             <table>
-              {/* States Tab */}
               {tab === 'states' && <>
                 <thead><tr><th>Name</th><th>Code</th><th>Status</th><th>Districts</th><th>Actions</th></tr></thead>
                 <tbody>
@@ -263,18 +311,12 @@ export default function AdminLocationsPage() {
                       <td><span className="badge badge-blue">{s.code}</span></td>
                       <td><span className={`badge ${s.isActive ? 'badge-green' : 'badge-red'}`}>● {s.isActive ? 'Active' : 'Inactive'}</span></td>
                       <td style={{ color: 'var(--text-dim)' }}>{s._count?.districts || 0}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-ghost btn-sm" onClick={() => setModal({ type: 'states', data: s })}><Edit2 size={12} />Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteState(s)}><Trash2 size={12} /></button>
-                        </div>
-                      </td>
+                      <td><ActionButtons item={s} onToggle={toggleState} onEdit={(item) => setModal({ type: 'states', data: item })} /></td>
                     </tr>
                   ))}
                 </tbody>
               </>}
 
-              {/* Districts Tab */}
               {tab === 'districts' && <>
                 <thead><tr><th>Name</th><th>Code</th><th>State</th><th>Status</th><th>Offices</th><th>Actions</th></tr></thead>
                 <tbody>
@@ -285,18 +327,12 @@ export default function AdminLocationsPage() {
                       <td><span className="badge badge-blue">{d.state?.code}</span></td>
                       <td><span className={`badge ${d.isActive ? 'badge-green' : 'badge-red'}`}>● {d.isActive ? 'Active' : 'Inactive'}</span></td>
                       <td style={{ color: 'var(--text-dim)' }}>{d._count?.offices || 0}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-ghost btn-sm" onClick={() => setModal({ type: 'districts', data: d })}><Edit2 size={12} />Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteDistrict(d)}><Trash2 size={12} /></button>
-                        </div>
-                      </td>
+                      <td><ActionButtons item={d} onToggle={toggleDistrict} onEdit={(item) => setModal({ type: 'districts', data: item })} /></td>
                     </tr>
                   ))}
                 </tbody>
               </>}
 
-              {/* Offices Tab */}
               {tab === 'offices' && <>
                 <thead><tr><th>Name</th><th>District</th><th>State</th><th>Status</th><th>Cameras</th><th>Actions</th></tr></thead>
                 <tbody>
@@ -307,12 +343,7 @@ export default function AdminLocationsPage() {
                       <td><span className="badge badge-blue">{o.district?.state?.code}</span></td>
                       <td><span className={`badge ${o.isActive ? 'badge-green' : 'badge-red'}`}>● {o.isActive ? 'Active' : 'Inactive'}</span></td>
                       <td style={{ color: 'var(--text-dim)' }}>{o._count?.cameras || 0}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-ghost btn-sm" onClick={() => setModal({ type: 'offices', data: o })}><Edit2 size={12} />Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteOffice(o)}><Trash2 size={12} /></button>
-                        </div>
-                      </td>
+                      <td><ActionButtons item={o} onToggle={toggleOffice} onEdit={(item) => setModal({ type: 'offices', data: item })} /></td>
                     </tr>
                   ))}
                 </tbody>
