@@ -17,7 +17,4 @@ router.get('/', recordingController.getRecordings);
 // Get signed S3 URL for a specific recording
 router.get('/:id/play', recordingController.getRecordingPlayUrl);
 
-// Register a new recording (called by DVR/NVR agent — SUPER_ADMIN only)
-router.post('/', requireRole('SUPER_ADMIN'), recordingController.registerRecording);
-
 module.exports = router;

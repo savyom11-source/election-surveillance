@@ -182,34 +182,7 @@ const getRecordingPlayUrl = asyncHandler(async (req, res) => {
   });
 });
 
-// ----------------------------------------------------------
-// POST /api/recordings — register a recording uploaded to S3
-// Called by the DVR/NVR agent after it pushes a file to S3
-// ----------------------------------------------------------
-const registerRecording = asyncHandler(async (req, res) => {
-  const { s3Key, s3Bucket, filename, durationSec, fileSizeMb, recordedAt, cameraId } = req.body;
-
-  const camera = await prisma.camera.findUnique({ where: { id: cameraId } });
-  if (!camera) throw new NotFoundError('Camera not found');
-
-  const recording = await prisma.recording.create({
-    data: {
-      s3Key,
-      s3Bucket: s3Bucket || env.aws.s3Bucket,
-      filename,
-      durationSec: durationSec ? parseInt(durationSec) : null,
-      fileSizeMb: fileSizeMb ? parseFloat(fileSizeMb) : null,
-      status: 'AVAILABLE',
-      recordedAt: new Date(recordedAt),
-      cameraId,
-    },
-  });
-
-  res.status(201).json({ success: true, data: recording });
-});
-
 module.exports = {
   getRecordings,
   getRecordingPlayUrl,
-  registerRecording,
 };

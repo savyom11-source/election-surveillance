@@ -185,6 +185,7 @@ const changePassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+  if (!user) throw new NotFoundError('User not found');
 
   const matches = await bcrypt.compare(oldPassword, user.passwordHash);
   if (!matches) throw new UnauthorizedError('Current password is incorrect');

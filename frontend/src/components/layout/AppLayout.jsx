@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
-  LayoutGrid, MapPin, Film, Users, Video,
+  LayoutGrid, MapPin, Film, Users, Video, Activity,
   ShieldCheck, LogOut, Menu, Bell, ClipboardList, Map
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -20,8 +20,8 @@ const ROLE_LABELS = {
 
 const NAV_ITEMS = [
   { to: '/dashboard',  icon: LayoutGrid, label: 'Live Dashboard' },
+  { to: '/stats',      icon: Activity,   label: 'Stats Overview' },
   { to: '/locations',  icon: MapPin,     label: 'Locations'      },
-  { to: '/recordings', icon: Film,       label: 'Recordings'     },
 ];
 
 const ADMIN_ITEMS = [

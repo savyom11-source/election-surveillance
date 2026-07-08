@@ -11,6 +11,8 @@ const locationRoutes  = require('./location.routes');
 const cameraRoutes    = require('./camera.routes');
 const recordingRoutes = require('./recording.routes');
 const auditLogRoutes  = require('./auditLog.routes');
+const statsRoutes     = require('./stats.routes');
+const uploadRoutes    = require('./upload.routes');
 
 router.use('/auth',       authRoutes);
 router.use('/users',      userRoutes);
@@ -18,6 +20,8 @@ router.use('/locations',  locationRoutes);
 router.use('/cameras',    cameraRoutes);
 router.use('/recordings', recordingRoutes);
 router.use('/audit-logs', auditLogRoutes);
+router.use('/stats',      statsRoutes);
+router.use('/upload',     uploadRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

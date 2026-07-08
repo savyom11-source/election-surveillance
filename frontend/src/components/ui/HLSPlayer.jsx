@@ -48,6 +48,11 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true }) {
         setState('playing');
       });
       video.addEventListener('error', () => setState('error'));
+
+      return () => {
+        video.removeAttribute('src');
+        video.load();
+      };
     } else {
       setState('error');
     }

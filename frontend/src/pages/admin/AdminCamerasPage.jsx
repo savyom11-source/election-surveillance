@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { Camera, Plus, Search, Edit2, Trash2, RefreshCw, X, CheckCircle } from 'lucide-react';
+import { Camera, Plus, Search, Edit2, Trash2, RefreshCw, X, CheckCircle, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { camerasApi, locationsApi } from '../../api/services';
 
@@ -124,6 +124,54 @@ function CameraForm({ initial = {}, onSubmit, onClose, loading }) {
   );
 }
 
+function BulkUploadModal({ onClose, onSuccess }) {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async () => {
+    if (!file) return toast.error('Please select an Excel file first');
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await camerasApi.bulkUpload(formData);
+      toast.success(res.data.data.message || 'Upload successful');
+      if (res.data.data.errors && res.data.data.errors.length > 0) {
+        console.warn('Upload had some row errors:', res.data.data.errors);
+        toast.error(`Completed with ${res.data.data.errors.length} errors. Check console.`);
+      }
+      onSuccess();
+    } catch (err) {
+      toast.error(err.response?.data?.error?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+        Upload an Excel file to bulk import cameras. The file must include columns for <b>State</b>, <b>District</b>, <b>Assembly/Office</b>, and <b>ID</b> (e.g., live/STREAM). Optional columns: <b>IN/OUT</b>, <b>RTMP/RTSP</b>, <b>Camera Name</b>.
+      </div>
+      <div className="form-group">
+        <input 
+          type="file" 
+          accept=".xlsx, .xls" 
+          onChange={(e) => setFile(e.target.files[0])} 
+          className="form-input" 
+          style={{ padding: '12px 16px' }}
+        />
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+        <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleUpload} disabled={uploading || !file}>
+          {uploading ? <><div className="spinner" style={{ width: 14, height: 14 }} />Uploading...</> : 'Upload & Process'}
+        </button>
+        <button className="btn btn-ghost" onClick={onClose} disabled={uploading}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminCamerasPage() {
   const [cameras, setCameras]     = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -195,7 +243,10 @@ export default function AdminCamerasPage() {
           <h1 style={{ fontFamily: 'Barlow Condensed', fontWeight: 900, fontSize: 28, color: 'var(--text-bright)', textTransform: 'uppercase' }}>Camera Management</h1>
           <p style={{ color: 'var(--text-dim)', fontSize: 12, marginTop: 4 }}>HLS URLs are auto-generated from RTMP/RTSP stream URLs via MediaMTX</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setModal('create')}><Plus size={14} /> Add Camera</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn btn-secondary" onClick={() => setModal('upload')}><Upload size={14} /> Bulk Upload</button>
+          <button className="btn btn-primary" onClick={() => setModal('create')}><Plus size={14} /> Add Camera</button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -274,7 +325,15 @@ export default function AdminCamerasPage() {
           <CameraForm onSubmit={handleCreate} onClose={() => setModal(null)} loading={saving} />
         </Modal>
       )}
-      {modal && modal !== 'create' && (
+      {modal === 'upload' && (
+        <Modal title="Bulk Upload Cameras" onClose={() => setModal(null)}>
+          <BulkUploadModal 
+            onClose={() => setModal(null)} 
+            onSuccess={() => { setModal(null); fetchCameras(); }} 
+          />
+        </Modal>
+      )}
+      {modal && modal !== 'create' && modal !== 'upload' && (
         <Modal title="Edit Camera" onClose={() => setModal(null)}>
           <CameraForm initial={modal} onSubmit={(form) => handleUpdate(modal.id, form)} onClose={() => setModal(null)} loading={saving} />
         </Modal>

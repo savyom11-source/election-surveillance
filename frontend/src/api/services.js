@@ -55,6 +55,9 @@ export const camerasApi = {
   create:  (data)     => api.post('/cameras', data),
   update:  (id, data) => api.patch(`/cameras/${id}`, data),
   delete:  (id)       => api.delete(`/cameras/${id}`),
+  bulkUpload: (formData) => api.post('/upload/cameras', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
 };
 
 export const recordingsApi = {

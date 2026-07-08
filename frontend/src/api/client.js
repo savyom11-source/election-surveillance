@@ -5,8 +5,10 @@
 
 import axios from 'axios';
 
+const API_URL = process.env.REACT_APP_API_URL || '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });
@@ -51,7 +53,7 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) throw new Error('No refresh token');
 
-        const { data } = await axios.post('/api/auth/refresh', { refreshToken });
+        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
         const { accessToken, refreshToken: newRefresh } = data.data;
 
         localStorage.setItem('accessToken', accessToken);

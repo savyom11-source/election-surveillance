@@ -11,8 +11,9 @@ import ErrorBoundary from './components/ui/ErrorBoundary';
 import AppLayout         from './components/layout/AppLayout';
 import LoginPage         from './pages/auth/LoginPage';
 import Dashboard         from './pages/Dashboard';
+import StatsPage         from './pages/StatsPage';
 import LocationsPage     from './pages/LocationsPage';
-import RecordingsPage    from './pages/RecordingsPage';
+
 import AdminUsersPage    from './pages/admin/AdminUsersPage';
 import AdminCamerasPage  from './pages/admin/AdminCamerasPage';
 import AdminLocationsPage from './pages/admin/AdminLocationsPage';
@@ -69,8 +70,9 @@ export default function App() {
           }>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard"         element={<Dashboard />} />
+            <Route path="stats"             element={<StatsPage />} />
             <Route path="locations"         element={<LocationsPage />} />
-            <Route path="recordings"        element={<RecordingsPage />} />
+
             <Route path="admin/users"       element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
             <Route path="admin/cameras"     element={<AdminRoute><AdminCamerasPage /></AdminRoute>} />
             <Route path="admin/locations"   element={<AdminRoute><AdminLocationsPage /></AdminRoute>} />
