@@ -7,7 +7,8 @@ const router = express.Router();
 const multer = require('multer');
 
 const uploadController = require('../controllers/upload.controller');
-const { authenticate, requireRole } = require('../middleware/authenticate');
+const { authenticate } = require('../middleware/authenticate');
+const { requireRole } = require('../middleware/rbac');
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
