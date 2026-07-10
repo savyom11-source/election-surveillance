@@ -13,6 +13,16 @@ function StatPill({ icon: Icon, value, label, colorClass, bgColorClass, borderCo
   );
 }
 
+function MiniStats({ stats }) {
+  return (
+    <div className="flex gap-4 text-xs font-mono font-bold bg-dark-900/50 px-4 py-2 rounded-lg border border-dark-600">
+      <span className="text-slate-300">TOTAL: {stats.total}</span>
+      <span className="text-teal-400">LIVE: {stats.online}</span>
+      <span className="text-slate-500">OFFLINE: {stats.notConnected}</span>
+    </div>
+  );
+}
+
 function RegionCard({ region }) {
   const { name, stats } = region;
   
@@ -76,7 +86,14 @@ export default function StatsPage() {
 
   if (!data) return null;
 
-  const { overall, regions } = data;
+  const { overall, states } = data;
+
+  // Calculate total number of offices to determine if we should show the breakdown
+  const totalOffices = states.reduce((sum, state) => 
+    sum + state.districts.reduce((dSum, dist) => dSum + dist.offices.length, 0)
+  , 0);
+
+  const showBreakdown = totalOffices > 1;
 
   return (
     <div className="p-6 max-w-7xl mx-auto flex flex-col h-full overflow-y-auto">
@@ -143,15 +160,36 @@ export default function StatsPage() {
         />
       </div>
 
-      {/* Regional Breakdown - Only show if there's more than 1 region */}
-      {regions.length > 1 && (
-        <div>
-          <h2 className="text-lg font-semibold text-slate-300 mb-4 tracking-wider uppercase">Regional Breakdown</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {regions.map(region => (
-              <RegionCard key={region.id} region={region} />
-            ))}
-          </div>
+      {/* Hierarchical Breakdown - Only show if there's more than 1 office */}
+      {showBreakdown && (
+        <div className="flex flex-col gap-8">
+          {states.map(state => (
+            <div key={state.id} className="bg-dark-800/20 border border-dark-600 rounded-xl p-6">
+              
+              <div className="flex items-center justify-between mb-6 border-b border-dark-500 pb-4">
+                <h2 className="text-xl font-bold text-blue-400 tracking-wider uppercase">{state.name} State</h2>
+                <MiniStats stats={state.stats} />
+              </div>
+
+              <div className="flex flex-col gap-6 pl-4">
+                {state.districts.map(district => (
+                  <div key={district.id} className="border-l-2 border-dark-600 pl-6">
+                    
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-slate-300 uppercase tracking-wide">{district.name} District</h3>
+                      <MiniStats stats={district.stats} />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {district.offices.map(office => (
+                        <RegionCard key={office.id} region={office} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

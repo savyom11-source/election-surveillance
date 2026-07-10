@@ -47,6 +47,12 @@ const getCameraStats = asyncHandler(async (req, res) => {
             select: {
               id: true,
               name: true,
+              state: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
             }
           }
         }
@@ -55,29 +61,54 @@ const getCameraStats = asyncHandler(async (req, res) => {
   });
 
   const overall = formatStats(cameras);
-  const regionalMap = {};
+  const stateMap = {};
 
   cameras.forEach(camera => {
-    if (!camera.office) return;
-    const regionId = camera.office.id;
-    // Include District name in the Office name for better context if needed, or just Office name
-    const regionName = `${camera.office.name} (${camera.office.district?.name || 'Unknown'})`;
+    if (!camera.office || !camera.office.district || !camera.office.district.state) return;
+    
+    const state = camera.office.district.state;
+    const district = camera.office.district;
+    const office = camera.office;
 
-    if (!regionalMap[regionId]) {
-      regionalMap[regionId] = {
-        id: regionId,
-        name: regionName,
-        cameras: []
-      };
+    if (!stateMap[state.id]) {
+      stateMap[state.id] = { id: state.id, name: state.name, cameras: [], districtMap: {} };
     }
-    regionalMap[regionId].cameras.push(camera);
+    stateMap[state.id].cameras.push(camera);
+
+    if (!stateMap[state.id].districtMap[district.id]) {
+      stateMap[state.id].districtMap[district.id] = { id: district.id, name: district.name, cameras: [], officeMap: {} };
+    }
+    stateMap[state.id].districtMap[district.id].cameras.push(camera);
+
+    if (!stateMap[state.id].districtMap[district.id].officeMap[office.id]) {
+      stateMap[state.id].districtMap[district.id].officeMap[office.id] = { id: office.id, name: office.name, cameras: [] };
+    }
+    stateMap[state.id].districtMap[district.id].officeMap[office.id].cameras.push(camera);
   });
 
-  const regions = Object.values(regionalMap).map(region => {
+  const states = Object.values(stateMap).map(st => {
+    const districts = Object.values(st.districtMap).map(dist => {
+      const offices = Object.values(dist.officeMap).map(off => {
+        return {
+          id: off.id,
+          name: off.name,
+          stats: formatStats(off.cameras)
+        };
+      }).sort((a, b) => a.name.localeCompare(b.name));
+
+      return {
+        id: dist.id,
+        name: dist.name,
+        stats: formatStats(dist.cameras),
+        offices
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+
     return {
-      id: region.id,
-      name: region.name,
-      stats: formatStats(region.cameras)
+      id: st.id,
+      name: st.name,
+      stats: formatStats(st.cameras),
+      districts
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -85,7 +116,7 @@ const getCameraStats = asyncHandler(async (req, res) => {
     success: true,
     data: {
       overall,
-      regions
+      states
     }
   });
 });

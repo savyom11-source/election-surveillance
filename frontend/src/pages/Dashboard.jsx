@@ -7,6 +7,7 @@ import { RefreshCw, Video, Filter, Grid, List, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast';
 import { camerasApi, locationsApi } from '../api/services';
 import HLSPlayer from '../components/ui/HLSPlayer';
+import useAuthStore from '../store/authStore';
 
 const STATUS_BADGE = {
   ACTIVE:      'badge-green',
@@ -28,6 +29,12 @@ export default function Dashboard() {
   const [expandedCamera, setExpandedCamera]     = useState(null);
   const [page, setPage]               = useState(1);
   const [pagination, setPagination]   = useState(null);
+  
+  const user = useAuthStore(state => state.user);
+  
+  // Helper booleans for role-based locking
+  const isStateLocked = ['STATE_ADMIN', 'DISTRICT_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
+  const isDistrictLocked = ['DISTRICT_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
 
   const fetchCameras = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -52,11 +59,11 @@ export default function Dashboard() {
     locationsApi.getStates().then((r) => {
       const fetchedStates = r.data.data;
       setStates(fetchedStates);
-      if (fetchedStates.length === 1) {
+      if (fetchedStates.length === 1 && isStateLocked) {
         setSelectedState(fetchedStates[0].id);
       }
     }).catch(() => {});
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (selectedState) {
@@ -64,7 +71,7 @@ export default function Dashboard() {
         .then((r) => {
           const fetchedDistricts = r.data.data;
           setDistricts(fetchedDistricts);
-          if (fetchedDistricts.length === 1) {
+          if (fetchedDistricts.length === 1 && isDistrictLocked) {
             setSelectedDistrict(fetchedDistricts[0].id);
           }
         })
@@ -123,7 +130,7 @@ export default function Dashboard() {
 
         <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
           value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict(''); setPage(1); }}
-          disabled={states.length === 1}>
+          disabled={isStateLocked}>
           <option value="">All States</option>
           {states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
@@ -131,7 +138,7 @@ export default function Dashboard() {
         {districts.length > 0 && (
           <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
             value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setPage(1); }}
-            disabled={districts.length === 1}>
+            disabled={isDistrictLocked}>
             <option value="">All Districts</option>
             {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
@@ -154,8 +161,8 @@ export default function Dashboard() {
 
         {(selectedState || selectedDistrict || statusFilter !== 'ACTIVE' || placementFilter) && (
           <button className="btn btn-ghost btn-sm" onClick={() => { 
-            if (states.length > 1) setSelectedState(''); 
-            if (districts.length > 1) setSelectedDistrict(''); 
+            if (!isStateLocked) setSelectedState(''); 
+            if (!isDistrictLocked) setSelectedDistrict(''); 
             setStatusFilter('ACTIVE'); 
             setPlacementFilter('');
             setPage(1); 
