@@ -57,21 +57,11 @@ const getCameraStats = asyncHandler(async (req, res) => {
   const overall = formatStats(cameras);
   const regionalMap = {};
 
-  // Determine grouping level
-  const groupByDistrict = ['SUPER_ADMIN', 'STATE_ADMIN'].includes(role);
-
   cameras.forEach(camera => {
-    let regionId, regionName;
-
-    if (groupByDistrict) {
-      if (!camera.office?.district) return; // Should not happen, but safe guard
-      regionId = camera.office.district.id;
-      regionName = camera.office.district.name;
-    } else {
-      if (!camera.office) return;
-      regionId = camera.office.id;
-      regionName = camera.office.name;
-    }
+    if (!camera.office) return;
+    const regionId = camera.office.id;
+    // Include District name in the Office name for better context if needed, or just Office name
+    const regionName = `${camera.office.name} (${camera.office.district?.name || 'Unknown'})`;
 
     if (!regionalMap[regionId]) {
       regionalMap[regionId] = {
