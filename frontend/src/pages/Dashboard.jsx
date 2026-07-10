@@ -24,6 +24,7 @@ export default function Dashboard() {
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [districts, setDistricts]               = useState([]);
   const [statusFilter, setStatusFilter]         = useState('ACTIVE');
+  const [placementFilter, setPlacementFilter]   = useState('');
   const [expandedCamera, setExpandedCamera]     = useState(null);
   const [page, setPage]               = useState(1);
   const [pagination, setPagination]   = useState(null);
@@ -32,6 +33,7 @@ export default function Dashboard() {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const params = { page, limit: 20, ...(statusFilter && { status: statusFilter }) };
+      if (placementFilter) params.placement = placementFilter;
       if (selectedDistrict) params.districtId = selectedDistrict;
       else if (selectedState) params.stateId = selectedState;
 
@@ -44,16 +46,28 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, statusFilter, selectedState, selectedDistrict]);
+  }, [page, statusFilter, placementFilter, selectedState, selectedDistrict]);
 
   useEffect(() => {
-    locationsApi.getStates().then((r) => setStates(r.data.data)).catch(() => {});
+    locationsApi.getStates().then((r) => {
+      const fetchedStates = r.data.data;
+      setStates(fetchedStates);
+      if (fetchedStates.length === 1) {
+        setSelectedState(fetchedStates[0].id);
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (selectedState) {
       locationsApi.getDistricts({ stateId: selectedState })
-        .then((r) => setDistricts(r.data.data))
+        .then((r) => {
+          const fetchedDistricts = r.data.data;
+          setDistricts(fetchedDistricts);
+          if (fetchedDistricts.length === 1) {
+            setSelectedDistrict(fetchedDistricts[0].id);
+          }
+        })
         .catch(() => {});
     } else {
       setDistricts([]);
@@ -108,18 +122,27 @@ export default function Dashboard() {
         <span style={{ fontFamily: 'Share Tech Mono', fontSize: 10, color: 'var(--text-dim)', letterSpacing: 1 }}>FILTER:</span>
 
         <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
-          value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict(''); setPage(1); }}>
+          value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict(''); setPage(1); }}
+          disabled={states.length === 1}>
           <option value="">All States</option>
           {states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
 
         {districts.length > 0 && (
           <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
-            value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setPage(1); }}>
+            value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setPage(1); }}
+            disabled={districts.length === 1}>
             <option value="">All Districts</option>
             {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         )}
+
+        <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
+          value={placementFilter} onChange={(e) => { setPlacementFilter(e.target.value); setPage(1); }}>
+          <option value="">All Placements</option>
+          <option value="INSIDE">Inside (IN)</option>
+          <option value="OUTSIDE">Outside (OUT)</option>
+        </select>
 
         <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
           value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
@@ -129,8 +152,14 @@ export default function Dashboard() {
           <option value="MAINTENANCE">Maintenance</option>
         </select>
 
-        {(selectedState || selectedDistrict || statusFilter !== 'ACTIVE') && (
-          <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedState(''); setSelectedDistrict(''); setStatusFilter('ACTIVE'); setPage(1); }}>
+        {(selectedState || selectedDistrict || statusFilter !== 'ACTIVE' || placementFilter) && (
+          <button className="btn btn-ghost btn-sm" onClick={() => { 
+            if (states.length > 1) setSelectedState(''); 
+            if (districts.length > 1) setSelectedDistrict(''); 
+            setStatusFilter('ACTIVE'); 
+            setPlacementFilter('');
+            setPage(1); 
+          }}>
             Clear
           </button>
         )}
@@ -167,7 +196,12 @@ export default function Dashboard() {
                     <span style={{ fontFamily: 'Share Tech Mono', fontSize: 10, letterSpacing: 1 }}>{cam.status}</span>
                   </div>
                 )}
-                <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+                  {cam.placement && (
+                    <span className="badge badge-blue">
+                      {cam.placement === 'INSIDE' ? 'IN' : 'OUT'}
+                    </span>
+                  )}
                   <span className={`badge ${STATUS_BADGE[cam.status] || 'badge-dim'}`}>
                     ● {cam.status}
                   </span>

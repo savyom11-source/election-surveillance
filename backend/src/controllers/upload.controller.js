@@ -128,13 +128,21 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
         }
       }
 
+      let placementVal = null;
+      if (inOut) {
+        const inOutLower = inOut.toLowerCase();
+        if (inOutLower.includes('in')) placementVal = 'INSIDE';
+        else if (inOutLower.includes('out')) placementVal = 'OUTSIDE';
+      }
+
       // Create Camera
       await prisma.camera.create({
         data: {
           name: cameraName,
-          description: inOut ? `Placement: ${inOut}` : null,
+          description: null,
           streamUrl,
           streamType,
+          placement: placementVal,
           officeId: office.id,
           status: 'ACTIVE'
         }

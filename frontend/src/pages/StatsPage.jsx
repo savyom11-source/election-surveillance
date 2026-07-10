@@ -143,22 +143,17 @@ export default function StatsPage() {
         />
       </div>
 
-      {/* Regional Breakdown */}
-      <div>
-        <h2 className="text-lg font-semibold text-slate-300 mb-4 tracking-wider uppercase">Regional Breakdown</h2>
-        
-        {regions.length === 0 ? (
-          <div className="text-slate-500 italic p-4 bg-dark-800 rounded-lg border border-dark-600">
-            No regions found for your access level.
-          </div>
-        ) : (
+      {/* Regional Breakdown - Only show if there's more than 1 region */}
+      {regions.length > 1 && (
+        <div>
+          <h2 className="text-lg font-semibold text-slate-300 mb-4 tracking-wider uppercase">Regional Breakdown</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {regions.map(region => (
               <RegionCard key={region.id} region={region} />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
     </div>
   );

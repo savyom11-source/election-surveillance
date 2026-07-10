@@ -25,6 +25,11 @@ enum StreamStatus {
   MAINTENANCE
 }
 
+enum CameraPlacement {
+  INSIDE
+  OUTSIDE
+}
+
 enum RecordingStatus {
   AVAILABLE
   PROCESSING
@@ -95,13 +100,14 @@ model Camera {
   name        String
   description String?
   streamUrl   String
-  streamType  StreamType   @default(RTMP)
-  status      StreamStatus @default(ACTIVE)
-  isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  streamType  StreamType       @default(RTMP)
+  status      StreamStatus     @default(ACTIVE)
+  placement   CameraPlacement?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   officeId    String
-  office      Office       @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  office      Office           @relation(fields: [officeId], references: [id], onDelete: Cascade)
   recordings  Recording[]
   auditLogs   AuditLog[]
   @@map("cameras")

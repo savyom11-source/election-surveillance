@@ -36,7 +36,7 @@ function formatCamera(camera) {
 const cameraSelect = {
   id: true, name: true, description: true,
   streamUrl: true, streamType: true,
-  status: true, isActive: true,
+  status: true, isActive: true, placement: true,
   createdAt: true, updatedAt: true, officeId: true,
   office: {
     select: {
@@ -57,12 +57,13 @@ const cameraSelect = {
 const getCameras = asyncHandler(async (req, res) => {
   const page   = Math.max(parseInt(req.query.page)  || 1, 1);
   const limit  = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
-  const { status, officeId, districtId, stateId, isActive } = req.query;
+  const { status, officeId, districtId, stateId, isActive, placement } = req.query;
 
   const where = {
     ...buildCameraScopeFilter(req.scope),
     ...(isActive !== undefined ? { isActive: isActive === 'true' } : { isActive: true }),
     ...(status     && { status }),
+    ...(placement  && { placement }),
     ...(officeId   && { officeId }),
     ...(districtId && { office: { districtId } }),
     ...(stateId    && { office: { district: { stateId } } }),
