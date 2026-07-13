@@ -67,7 +67,7 @@ const getCameras = asyncHandler(async (req, res) => {
     ...(officeId   && { officeId }),
     ...(districtId && { office: { districtId } }),
     ...(stateId    && { office: { district: { stateId } } }),
-    ...(streamId   && { streamUrl: { contains: streamId } }),
+    ...(streamId   && { streamUrl: { contains: streamId, mode: 'insensitive' } }),
   };
 
   const [cameras, total] = await Promise.all([
