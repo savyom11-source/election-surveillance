@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [districts, setDistricts]               = useState([]);
   const [statusFilter, setStatusFilter]         = useState('ACTIVE');
   const [placementFilter, setPlacementFilter]   = useState('');
+  const [streamIdFilter, setStreamIdFilter]     = useState('');
   const [expandedCamera, setExpandedCamera]     = useState(null);
   const [page, setPage]               = useState(1);
   const [pagination, setPagination]   = useState(null);
@@ -41,6 +42,7 @@ export default function Dashboard() {
     try {
       const params = { page, limit: 20, ...(statusFilter && { status: statusFilter }) };
       if (placementFilter) params.placement = placementFilter;
+      if (streamIdFilter) params.streamId = streamIdFilter;
       if (selectedDistrict) params.districtId = selectedDistrict;
       else if (selectedState) params.stateId = selectedState;
 
@@ -53,7 +55,7 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, statusFilter, placementFilter, selectedState, selectedDistrict]);
+  }, [page, statusFilter, placementFilter, streamIdFilter, selectedState, selectedDistrict]);
 
   useEffect(() => {
     locationsApi.getStates().then((r) => {
@@ -128,6 +130,15 @@ export default function Dashboard() {
         <Filter size={14} color="var(--text-dim)" />
         <span style={{ fontFamily: 'Share Tech Mono', fontSize: 10, color: 'var(--text-dim)', letterSpacing: 1 }}>FILTER:</span>
 
+        <input 
+          type="text" 
+          placeholder="Stream ID..." 
+          className="form-input" 
+          style={{ width: 140, padding: '6px 12px', fontSize: 12 }} 
+          value={streamIdFilter} 
+          onChange={(e) => { setStreamIdFilter(e.target.value); setPage(1); }} 
+        />
+
         <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
           value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict(''); setPage(1); }}
           disabled={isStateLocked}>
@@ -159,12 +170,13 @@ export default function Dashboard() {
           <option value="MAINTENANCE">Maintenance</option>
         </select>
 
-        {(selectedState || selectedDistrict || statusFilter !== 'ACTIVE' || placementFilter) && (
+        {(selectedState || selectedDistrict || statusFilter !== 'ACTIVE' || placementFilter || streamIdFilter) && (
           <button className="btn btn-ghost btn-sm" onClick={() => { 
             if (!isStateLocked) setSelectedState(''); 
             if (!isDistrictLocked) setSelectedDistrict(''); 
             setStatusFilter('ACTIVE'); 
             setPlacementFilter('');
+            setStreamIdFilter('');
             setPage(1); 
           }}>
             Clear

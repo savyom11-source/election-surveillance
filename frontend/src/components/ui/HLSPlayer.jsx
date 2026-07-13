@@ -22,7 +22,7 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true }) {
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: true,
+        lowLatencyMode: false,
         backBufferLength: 30,
       });
       hlsRef.current = hls;
@@ -34,8 +34,26 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true }) {
         setState('playing');
       });
 
+      let retryCount = 0;
       hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) setState('error');
+        if (data.fatal) {
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+          } else {
+            if (retryCount < 3) {
+              retryCount++;
+              setTimeout(() => {
+                if (hlsRef.current) {
+                  hls.loadSource(src);
+                  hls.startLoad();
+                }
+              }, 2000);
+            } else {
+              hls.destroy();
+              setState('error');
+            }
+          }
+        }
       });
 
       return () => { hls.destroy(); hlsRef.current = null; };
@@ -62,7 +80,7 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true }) {
     <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
       <video
         ref={videoRef}
-        className="video-player rounded-lg"
+        className="w-full h-full object-cover rounded-lg"
         muted
         playsInline
         controls={state === 'playing'}

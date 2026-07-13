@@ -57,7 +57,7 @@ const cameraSelect = {
 const getCameras = asyncHandler(async (req, res) => {
   const page   = Math.max(parseInt(req.query.page)  || 1, 1);
   const limit  = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
-  const { status, officeId, districtId, stateId, isActive, placement } = req.query;
+  const { status, officeId, districtId, stateId, isActive, placement, streamId } = req.query;
 
   const where = {
     ...buildCameraScopeFilter(req.scope),
@@ -67,6 +67,7 @@ const getCameras = asyncHandler(async (req, res) => {
     ...(officeId   && { officeId }),
     ...(districtId && { office: { districtId } }),
     ...(stateId    && { office: { district: { stateId } } }),
+    ...(streamId   && { streamUrl: { contains: streamId } }),
   };
 
   const [cameras, total] = await Promise.all([
