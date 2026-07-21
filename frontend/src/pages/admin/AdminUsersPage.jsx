@@ -115,11 +115,24 @@ function CreateUserModal({ onClose, onCreated }) {
           )}
           {form.role === 'OFFICE_OBSERVER' && offices.length > 0 && (
             <div className="form-group">
-              <label className="form-label">Office</label>
-              <select className="form-input" onChange={(e) => set('scope', { ...form.scope, officeIds: e.target.value ? [e.target.value] : [] })}>
-                <option value="">Select Office</option>
-                {offices.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-              </select>
+              <label className="form-label">Offices (Select multiple)</label>
+              <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 5, padding: 8, background: 'var(--surface)' }}>
+                {offices.map((o) => (
+                  <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
+                    <input type="checkbox" 
+                      style={{ accentColor: 'var(--accent)' }}
+                      checked={(form.scope.officeIds || []).includes(o.id)}
+                      onChange={(e) => {
+                        const newIds = e.target.checked 
+                          ? [...(form.scope.officeIds || []), o.id]
+                          : (form.scope.officeIds || []).filter(id => id !== o.id);
+                        set('scope', { ...form.scope, officeIds: newIds });
+                      }}
+                    />
+                    {o.name}
+                  </label>
+                ))}
+              </div>
             </div>
           )}
         </>

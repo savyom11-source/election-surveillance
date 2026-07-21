@@ -21,6 +21,10 @@ export default function Dashboard() {
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
   const [view, setView]               = useState('grid'); // 'grid' | 'list'
+  const [gridLayout, setGridLayout]   = useState('2:4');
+  const [autoRotate, setAutoRotate]   = useState(true);
+  const [crowdThreshold, setCrowdThreshold] = useState(10);
+  const [headcounts, setHeadcounts]   = useState({});
   const [selectedState, setSelectedState]       = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [districts, setDistricts]               = useState([]);
@@ -37,10 +41,14 @@ export default function Dashboard() {
   const isStateLocked = ['STATE_ADMIN', 'DISTRICT_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
   const isDistrictLocked = ['DISTRICT_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
 
+  // Derived limit from grid layout
+  const [rows, cols] = gridLayout.split(':').map(Number);
+  const gridLimit = view === 'grid' ? (rows * cols) : 20;
+
   const fetchCameras = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const params = { page, limit: 20, ...(statusFilter && { status: statusFilter }) };
+      const params = { page, limit: gridLimit, ...(statusFilter && { status: statusFilter }) };
       if (placementFilter) params.placement = placementFilter;
       if (streamIdFilter) params.streamId = streamIdFilter;
       if (selectedDistrict) params.districtId = selectedDistrict;
@@ -55,7 +63,18 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, statusFilter, placementFilter, streamIdFilter, selectedState, selectedDistrict]);
+  }, [page, statusFilter, placementFilter, streamIdFilter, selectedState, selectedDistrict, gridLimit]);
+
+  // Auto-rotation timer
+  useEffect(() => {
+    if (!autoRotate || !pagination || pagination.totalPages <= 1 || view !== 'grid') return;
+    
+    const timer = setInterval(() => {
+      setPage(prev => (prev >= pagination.totalPages ? 1 : prev + 1));
+    }, 30000); // 30s
+    
+    return () => clearInterval(timer);
+  }, [autoRotate, pagination, view]);
 
   useEffect(() => {
     locationsApi.getStates().then((r) => {
@@ -90,7 +109,7 @@ export default function Dashboard() {
   const inactiveCameras = cameras.filter((c) => c.status !== 'ACTIVE').length;
 
   return (
-    <div className="fade-in" style={{ padding: '24px', minHeight: '100%' }}>
+    <div className="fade-in" style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
@@ -107,6 +126,42 @@ export default function Dashboard() {
             <span className="badge badge-green">● {activeCameras} Live</span>
             {inactiveCameras > 0 && <span className="badge badge-dim">● {inactiveCameras} Offline</span>}
           </div>
+
+          {view === 'grid' && (
+            <>
+              {/* Auto Rotate Toggle */}
+              <button className="btn btn-sm" 
+                onClick={() => setAutoRotate(!autoRotate)}
+                style={{ 
+                  borderRadius: 5, padding: '0 10px', height: 30, border: '1px solid var(--border)',
+                  background: autoRotate ? 'rgba(0,200,255,0.1)' : 'transparent',
+                  color: autoRotate ? 'var(--accent)' : 'var(--text-dim)' 
+                }}>
+                {autoRotate ? '⏸ Auto (30s)' : '▶ Paused'}
+              </button>
+
+              {/* Grid Layout Selector */}
+              <select className="form-input" style={{ width: 'auto', padding: '0 10px', fontSize: 12, height: 30 }}
+                value={gridLayout} onChange={(e) => { setGridLayout(e.target.value); setPage(1); }}>
+                <option value="1:1">1x1 Matrix</option>
+                <option value="1:2">1x2 Matrix</option>
+                <option value="2:2">2x2 Matrix</option>
+                <option value="2:3">2x3 Matrix</option>
+                <option value="2:4">2x4 Matrix</option>
+                <option value="3:3">3x3 Matrix</option>
+                <option value="3:4">3x4 Matrix</option>
+                <option value="4:4">4x4 Matrix</option>
+              </select>
+
+              {/* AI Crowd Threshold */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px', height: 30, background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: 5 }}>
+                <span style={{ fontSize: 10, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>🚨 ALERT IF ></span>
+                <input type="number" className="form-input" style={{ width: 40, height: 20, padding: '0 4px', fontSize: 12, textAlign: 'center' }}
+                  value={crowdThreshold} onChange={(e) => setCrowdThreshold(Number(e.target.value))} />
+                <span style={{ fontSize: 10, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>PPL</span>
+              </div>
+            </>
+          )}
 
           {/* View toggle */}
           <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
@@ -202,20 +257,45 @@ export default function Dashboard() {
 
       {/* Grid View */}
       {!loading && cameras.length > 0 && view === 'grid' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-          {cameras.map((cam) => (
-            <div key={cam.id} className="card" style={{ cursor: 'pointer', transition: 'border-color 0.2s', borderColor: expandedCamera === cam.id ? 'var(--accent)' : 'var(--border)' }}
+        <div style={{ 
+          flex: 1, 
+          minHeight: 0,
+          display: 'grid', 
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, 1fr)`,
+          gap: 16,
+          paddingBottom: 20
+        }}>
+          {cameras.map((cam) => {
+            const currentCount = headcounts[cam.id] || 0;
+            const isCrowded = currentCount >= crowdThreshold;
+
+            return (
+            <div key={cam.id} className="card" style={{ cursor: 'pointer', transition: 'all 0.2s', borderColor: isCrowded ? 'red' : (expandedCamera === cam.id ? 'var(--accent)' : 'var(--border)'), boxShadow: isCrowded ? '0 0 15px rgba(255,0,0,0.6)' : 'none', display: 'flex', flexDirection: 'column', minHeight: 0 }}
               onClick={() => setExpandedCamera(expandedCamera === cam.id ? null : cam.id)}>
-              <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9' }}>
+              <div style={{ position: 'relative', background: '#000', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {cam.status === 'ACTIVE' && cam.hlsUrl ? (
-                  <HLSPlayer src={cam.hlsUrl} autoplay={expandedCamera === cam.id} />
+                  <HLSPlayer src={cam.hlsUrl} autoplay={expandedCamera === cam.id} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--text-dim)' }}>
                     <AlertCircle size={28} />
                     <span style={{ fontFamily: 'Share Tech Mono', fontSize: 10, letterSpacing: 1 }}>{cam.status}</span>
                   </div>
                 )}
-                <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+                
+                {/* Overcrowded Badge */}
+                {isCrowded && (
+                  <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'red', color: 'white', padding: '4px 12px', borderRadius: 20, fontWeight: 'bold', fontSize: 12, zIndex: 10, whiteSpace: 'nowrap', border: '2px solid white' }}>
+                    🚨 OVERCROWDED: {currentCount} DETECTED
+                  </div>
+                )}
+
+                <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {/* Headcount Badge */}
+                  <span style={{ background: '#ffcc00', color: '#000', padding: '2px 8px', borderRadius: 4, fontWeight: 900, fontSize: 11, fontFamily: 'Share Tech Mono', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                    👤 {currentCount}
+                  </span>
+
                   {cam.placement && (
                     <span className="badge badge-blue">
                       {cam.placement === 'INSIDE' ? 'IN' : 'OUT'}
@@ -226,14 +306,15 @@ export default function Dashboard() {
                   </span>
                 </div>
               </div>
-              <div style={{ padding: '10px 14px' }}>
+              <div style={{ padding: '10px 14px', flexShrink: 0, borderTop: '1px solid var(--border)' }}>
                 <div style={{ fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 15, color: 'var(--text-bright)', marginBottom: 2 }}>{cam.name}</div>
                 <div style={{ fontFamily: 'Share Tech Mono', fontSize: 10, color: 'var(--text-dim)', letterSpacing: 0.5 }}>
                   {cam.office?.name} · {cam.office?.district?.name} · {cam.office?.district?.state?.code}
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

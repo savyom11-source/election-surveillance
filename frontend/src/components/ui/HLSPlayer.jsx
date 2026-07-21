@@ -5,8 +5,13 @@
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { VideoOff, Loader2, AlertTriangle } from 'lucide-react';
+import '@tensorflow/tfjs';
+import * as cocoSsd from '@tensorflow-models/coco-ssd';
 
-export default function HLSPlayer({ src, cameraName, autoPlay = true }) {
+let tfModel = null;
+let modelLoading = false;
+
+export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcountUpdate }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const [state, setState] = useState('loading'); // loading | playing | error | offline
@@ -76,11 +81,40 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true }) {
     }
   }, [src, autoPlay]);
 
+  // AI Crowd Detection
+  useEffect(() => {
+    if (!autoPlay || state !== 'playing') return;
+
+    if (!tfModel && !modelLoading) {
+      modelLoading = true;
+      cocoSsd.load().then(m => {
+        tfModel = m;
+        modelLoading = false;
+      }).catch(err => {
+        console.error('Failed to load COCO-SSD:', err);
+        modelLoading = false;
+      });
+    }
+
+    const interval = setInterval(async () => {
+      if (!tfModel || !videoRef.current) return;
+      try {
+        const predictions = await tfModel.detect(videoRef.current);
+        const personCount = predictions.filter(p => p.class === 'person').length;
+        if (onHeadcountUpdate) onHeadcountUpdate(personCount);
+      } catch (e) {
+        // Ignore detection errors
+      }
+    }, 4000 + Math.random() * 2000); // Stagger intervals between 4-6 seconds
+
+    return () => clearInterval(interval);
+  }, [state, autoPlay, onHeadcountUpdate]);
+
   return (
-    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+    <div className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center" style={{ borderRadius: '6px 6px 0 0' }}>
       <video
         ref={videoRef}
-        className="w-full h-full object-cover rounded-lg"
+        className="w-full h-full object-contain"
         muted
         playsInline
         controls={state === 'playing'}

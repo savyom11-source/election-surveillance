@@ -12,7 +12,10 @@
     "zustand": "^5.0.1",
     "react-hot-toast": "^2.4.1",
     "date-fns": "^4.1.0",
-    "lucide-react": "^0.468.0"
+    "lucide-react": "^0.468.0",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow-models/coco-ssd": "^2.2.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "react-scripts": "5.0.1",

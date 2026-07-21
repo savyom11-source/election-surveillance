@@ -8,7 +8,7 @@ const multer = require('multer');
 
 const uploadController = require('../controllers/upload.controller');
 const { authenticate } = require('../middleware/authenticate');
-const { requireRole } = require('../middleware/rbac');
+const rbac = require('../middleware/rbac');
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -28,6 +28,6 @@ const upload = multer({
 router.use(authenticate);
 
 // Only SUPER_ADMIN can perform bulk uploads
-router.post('/cameras', (req, res, next) => requireRole('SUPER_ADMIN')(req, res, next), upload.single('file'), uploadController.bulkUploadCameras);
+router.post('/cameras', (req, res, next) => rbac.requireRole('SUPER_ADMIN')(req, res, next), upload.single('file'), uploadController.bulkUploadCameras);
 
 module.exports = router;

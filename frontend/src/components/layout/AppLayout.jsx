@@ -35,6 +35,7 @@ export default function AppLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const roleInfo = ROLE_LABELS[user?.role] || ROLE_LABELS.OFFICE_OBSERVER;
@@ -142,8 +143,8 @@ export default function AppLayout() {
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg)' }}>
 
-      {/* Sidebar */}
-      <SidebarContent />
+      {/* Sidebar (Desktop) */}
+      {!sidebarCollapsed && <SidebarContent />}
 
       {/* Mobile overlay */}
       {mobileOpen && (
@@ -158,7 +159,7 @@ export default function AppLayout() {
 
         {/* Topbar */}
         <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <button onClick={() => setMobileOpen(true)}
+          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}>
             <Menu size={18} />
           </button>
