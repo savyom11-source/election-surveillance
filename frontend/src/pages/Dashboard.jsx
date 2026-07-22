@@ -10,9 +10,9 @@ import HLSPlayer from '../components/ui/HLSPlayer';
 import useAuthStore from '../store/authStore';
 
 const STATUS_BADGE = {
-  ACTIVE:      'badge-green',
-  INACTIVE:    'badge-dim',
-  MAINTENANCE: 'badge-yellow',
+  ACTIVE: 'badge-green',
+  INACTIVE: 'badge-dim',
+  NOT_CONNECTED: 'badge-yellow',
 };
 
 export default function Dashboard() {
@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [selectedState, setSelectedState]       = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [districts, setDistricts]               = useState([]);
-  const [statusFilter, setStatusFilter]         = useState('ACTIVE');
+  const [statusFilter, setStatusFilter]         = useState('ALL');
   const [placementFilter, setPlacementFilter]   = useState('');
   const [streamIdFilter, setStreamIdFilter]     = useState('');
   const [expandedCamera, setExpandedCamera]     = useState(null);
@@ -49,7 +49,8 @@ export default function Dashboard() {
   const fetchCameras = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
-      const params = { page, limit: gridLimit, ...(statusFilter && { status: statusFilter }) };
+      const params = { page, limit: gridLimit };
+      if (statusFilter !== 'ALL') params.status = statusFilter;
       if (placementFilter) params.placement = placementFilter;
       if (streamIdFilter) params.streamId = streamIdFilter;
       if (selectedDistrict) params.districtId = selectedDistrict;
@@ -222,9 +223,9 @@ export default function Dashboard() {
           <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
             value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setPage(1); }}
             disabled={isDistrictLocked}>
-            <option value="">All Districts</option>
-            {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          <option value="">All Districts</option>
+          {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
         )}
 
         <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
@@ -236,17 +237,17 @@ export default function Dashboard() {
 
         <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
           value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-          <option value="">All Statuses</option>
+          <option value="ALL">All Status</option>
           <option value="ACTIVE">Active</option>
           <option value="INACTIVE">Inactive</option>
-          <option value="MAINTENANCE">Maintenance</option>
+          <option value="NOT_CONNECTED">Not Connected</option>
         </select>
 
-        {(selectedState || selectedDistrict || statusFilter !== 'ACTIVE' || placementFilter || streamIdFilter) && (
+        {(selectedState || selectedDistrict || statusFilter !== 'ALL' || placementFilter || streamIdFilter) && (
           <button className="btn btn-ghost btn-sm" onClick={() => { 
             if (!isStateLocked) setSelectedState(''); 
             if (!isDistrictLocked) setSelectedDistrict(''); 
-            setStatusFilter('ACTIVE'); 
+            setStatusFilter('ALL'); 
             setPlacementFilter('');
             setStreamIdFilter('');
             setPage(1); 

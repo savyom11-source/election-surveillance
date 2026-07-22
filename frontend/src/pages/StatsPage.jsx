@@ -75,8 +75,8 @@ export default function StatsPage() {
 
   useEffect(() => {
     fetchStats();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchStats, 30000);
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(fetchStats, 10000);
     return () => clearInterval(interval);
   }, []);
 

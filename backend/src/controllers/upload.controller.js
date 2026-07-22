@@ -144,7 +144,7 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
           streamType,
           placement: placementVal,
           officeId: office.id,
-          status: 'ACTIVE'
+          status: 'NOT_CONNECTED'
         }
       });
 

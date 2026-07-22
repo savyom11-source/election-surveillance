@@ -13,6 +13,7 @@ const recordingRoutes = require('./recording.routes');
 const auditLogRoutes  = require('./auditLog.routes');
 const statsRoutes     = require('./stats.routes');
 const uploadRoutes    = require('./upload.routes');
+const webhooksRoutes  = require('./webhooks.routes');
 
 router.use('/auth',       authRoutes);
 router.use('/users',      userRoutes);
@@ -22,6 +23,7 @@ router.use('/recordings', recordingRoutes);
 router.use('/audit-logs', auditLogRoutes);
 router.use('/stats',      statsRoutes);
 router.use('/upload',     uploadRoutes);
+router.use('/webhooks',   webhooksRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

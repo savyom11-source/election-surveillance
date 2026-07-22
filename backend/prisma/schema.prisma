@@ -20,9 +20,9 @@ enum StreamType {
 }
 
 enum StreamStatus {
+  NOT_CONNECTED
   ACTIVE
   INACTIVE
-  MAINTENANCE
 }
 
 enum CameraPlacement {
@@ -101,7 +101,7 @@ model Camera {
   description String?
   streamUrl   String
   streamType  StreamType       @default(RTMP)
-  status      StreamStatus     @default(ACTIVE)
+  status      StreamStatus     @default(NOT_CONNECTED)
   placement   CameraPlacement?
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
