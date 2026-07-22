@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [view, setView]               = useState('grid'); // 'grid' | 'list'
   const [gridLayout, setGridLayout]   = useState('2:4');
   const [autoRotate, setAutoRotate]   = useState(true);
+  const [rotateInterval, setRotateInterval] = useState(30000);
   const [crowdThreshold, setCrowdThreshold] = useState(10);
   const [headcounts, setHeadcounts]   = useState({});
   const [selectedState, setSelectedState]       = useState('');
@@ -71,10 +72,10 @@ export default function Dashboard() {
     
     const timer = setInterval(() => {
       setPage(prev => (prev >= pagination.totalPages ? 1 : prev + 1));
-    }, 30000); // 30s
+    }, rotateInterval);
     
     return () => clearInterval(timer);
-  }, [autoRotate, pagination, view]);
+  }, [autoRotate, rotateInterval, pagination, view]);
 
   useEffect(() => {
     locationsApi.getStates().then((r) => {
@@ -129,16 +130,32 @@ export default function Dashboard() {
 
           {view === 'grid' && (
             <>
-              {/* Auto Rotate Toggle */}
-              <button className="btn btn-sm" 
-                onClick={() => setAutoRotate(!autoRotate)}
-                style={{ 
-                  borderRadius: 5, padding: '0 10px', height: 30, border: '1px solid var(--border)',
-                  background: autoRotate ? 'rgba(0,200,255,0.1)' : 'transparent',
-                  color: autoRotate ? 'var(--accent)' : 'var(--text-dim)' 
-                }}>
-                {autoRotate ? '⏸ Auto (30s)' : '▶ Paused'}
-              </button>
+              {/* Auto Rotate Toggle & Interval */}
+              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
+                <button className="btn btn-sm" 
+                  onClick={() => setAutoRotate(!autoRotate)}
+                  style={{ 
+                    border: 'none', borderRadius: 0, padding: '0 10px', height: 30,
+                    background: autoRotate ? 'rgba(0,200,255,0.1)' : 'transparent',
+                    color: autoRotate ? 'var(--accent)' : 'var(--text-dim)' 
+                  }}>
+                  {autoRotate ? '⏸ Auto' : '▶ Paused'}
+                </button>
+                <select 
+                  className="form-input" 
+                  style={{ width: 'auto', padding: '0 8px', fontSize: 12, height: 30, border: 'none', borderLeft: '1px solid var(--border)', borderRadius: 0, background: 'transparent' }}
+                  value={rotateInterval} 
+                  onChange={(e) => setRotateInterval(Number(e.target.value))}
+                  disabled={!autoRotate}
+                >
+                  <option value={10000}>10s</option>
+                  <option value={20000}>20s</option>
+                  <option value={30000}>30s</option>
+                  <option value={40000}>40s</option>
+                  <option value={50000}>50s</option>
+                  <option value={60000}>1m</option>
+                </select>
+              </div>
 
               {/* Grid Layout Selector */}
               <select className="form-input" style={{ width: 'auto', padding: '0 10px', fontSize: 12, height: 30 }}
@@ -275,7 +292,7 @@ export default function Dashboard() {
               onClick={() => setExpandedCamera(expandedCamera === cam.id ? null : cam.id)}>
               <div style={{ position: 'relative', background: '#000', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {cam.status === 'ACTIVE' && cam.hlsUrl ? (
-                  <HLSPlayer src={cam.hlsUrl} autoplay={expandedCamera === cam.id} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} />
+                  <HLSPlayer src={cam.hlsUrl} autoPlay={expandedCamera === cam.id} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} crowdThreshold={crowdThreshold} />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--text-dim)' }}>
                     <AlertCircle size={28} />
@@ -283,19 +300,7 @@ export default function Dashboard() {
                   </div>
                 )}
                 
-                {/* Overcrowded Badge */}
-                {isCrowded && (
-                  <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'red', color: 'white', padding: '4px 12px', borderRadius: 20, fontWeight: 'bold', fontSize: 12, zIndex: 10, whiteSpace: 'nowrap', border: '2px solid white' }}>
-                    🚨 OVERCROWDED: {currentCount} DETECTED
-                  </div>
-                )}
-
-                <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, alignItems: 'center' }}>
-                  {/* Headcount Badge */}
-                  <span style={{ background: '#ffcc00', color: '#000', padding: '2px 8px', borderRadius: 4, fontWeight: 900, fontSize: 11, fontFamily: 'Share Tech Mono', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-                    👤 {currentCount}
-                  </span>
-
+                <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, alignItems: 'center', pointerEvents: 'none' }}>
                   {cam.placement && (
                     <span className="badge badge-blue">
                       {cam.placement === 'INSIDE' ? 'IN' : 'OUT'}

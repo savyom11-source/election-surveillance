@@ -4,17 +4,27 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import { VideoOff, Loader2, AlertTriangle } from 'lucide-react';
+import { VideoOff, Loader2, AlertTriangle, Maximize } from 'lucide-react';
 import '@tensorflow/tfjs';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
 
 let tfModel = null;
 let modelLoading = false;
 
-export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcountUpdate }) {
+export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcountUpdate, crowdThreshold = 10 }) {
+  const containerRef = useRef(null);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const [state, setState] = useState('loading'); // loading | playing | error | offline
+  const [headcount, setHeadcount] = useState(0);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   useEffect(() => {
     if (!src) { setState('offline'); return; }
@@ -27,8 +37,10 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: false,
-        backBufferLength: 30,
+        lowLatencyMode: true,
+        backBufferLength: 10, // Keep less old video in memory
+        liveSyncDurationCount: 3, // Target 3 segments from the live edge
+        liveMaxLatencyDurationCount: 5, // If we fall behind by 5 segments (e.g. background tab), jump instantly to the live edge
       });
       hlsRef.current = hls;
       hls.loadSource(src);
@@ -101,20 +113,26 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
       try {
         const predictions = await tfModel.detect(videoRef.current);
         const personCount = predictions.filter(p => p.class === 'person').length;
+        setHeadcount(personCount);
         if (onHeadcountUpdate) onHeadcountUpdate(personCount);
       } catch (e) {
         // Ignore detection errors
       }
-    }, 4000 + Math.random() * 2000); // Stagger intervals between 4-6 seconds
+    }, 1500 + Math.random() * 1000); // Stagger intervals between 1.5 - 2.5 seconds (averages 2s)
 
     return () => clearInterval(interval);
   }, [state, autoPlay, onHeadcountUpdate]);
 
   return (
-    <div className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center" style={{ borderRadius: '6px 6px 0 0' }}>
+    <div ref={containerRef} className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center group" style={{ borderRadius: '6px 6px 0 0' }}>
+      <style>{`
+        .custom-video::-webkit-media-controls-fullscreen-button {
+          display: none;
+        }
+      `}</style>
       <video
         ref={videoRef}
-        className="w-full h-full object-contain"
+        className="w-full h-full object-contain custom-video"
         muted
         playsInline
         controls={state === 'playing'}
@@ -142,13 +160,30 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
         </div>
       )}
 
-      {/* LIVE badge */}
+      {/* LIVE badge and Fullscreen Overlays */}
       {state === 'playing' && (
-        <div className="absolute top-2 left-2 flex items-center gap-1.5
-                        bg-black/60 rounded px-2 py-0.5">
-          <span className="live-dot w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-          <span className="font-mono text-[10px] text-white tracking-widest">LIVE</span>
-        </div>
+        <>
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/60 rounded px-2 py-0.5">
+            <span className="live-dot w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+            <span className="font-mono text-[10px] text-white tracking-widest">LIVE</span>
+          </div>
+          
+          <div className="absolute top-2 right-2 flex items-center gap-2">
+            <span style={{ background: '#ffcc00', color: '#000', padding: '2px 8px', borderRadius: 4, fontWeight: 900, fontSize: 11, fontFamily: 'Share Tech Mono', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+              👤 {headcount}
+            </span>
+            <button onClick={toggleFullscreen} className="bg-black/60 p-1.5 rounded text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100" title="Full Screen">
+              <Maximize size={14} />
+            </button>
+          </div>
+
+          {/* Overcrowded Badge */}
+          {headcount >= crowdThreshold && (
+            <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'red', color: 'white', padding: '4px 12px', borderRadius: 20, fontWeight: 'bold', fontSize: 12, zIndex: 10, whiteSpace: 'nowrap', border: '2px solid white' }}>
+              🚨 OVERCROWDED: {headcount} DETECTED
+            </div>
+          )}
+        </>
       )}
     </div>
   );
