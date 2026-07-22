@@ -11,7 +11,7 @@ import * as cocoSsd from '@tensorflow-models/coco-ssd';
 let tfModel = null;
 let modelLoading = false;
 
-export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcountUpdate, crowdThreshold = 10 }) {
+export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcountUpdate, crowdThreshold = 10, children }) {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
@@ -185,6 +185,9 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
           )}
         </>
       )}
+
+      {/* Custom Overlays Injected by Parent */}
+      {children}
     </div>
   );
 }

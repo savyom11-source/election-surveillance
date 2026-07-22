@@ -287,17 +287,33 @@ export default function Dashboard() {
             const currentCount = headcounts[cam.id] || 0;
             const isCrowded = currentCount >= crowdThreshold;
 
+            const CCTVOverlay = (
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-10 pb-2 px-3 flex flex-col justify-end pointer-events-none z-10">
+                <div style={{ fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 13, color: 'var(--text-bright)', textShadow: '1px 1px 2px #000', marginBottom: 1, letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {cam.name}
+                </div>
+                <div style={{ fontFamily: 'Share Tech Mono', fontSize: 9, color: '#ccc', textShadow: '1px 1px 2px #000', letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {cam.office?.name} · {cam.office?.district?.name} · {cam.office?.district?.state?.code}
+                </div>
+              </div>
+            );
+
             return (
-            <div key={cam.id} className="card" style={{ cursor: 'pointer', transition: 'all 0.2s', borderColor: isCrowded ? 'red' : (expandedCamera === cam.id ? 'var(--accent)' : 'var(--border)'), boxShadow: isCrowded ? '0 0 15px rgba(255,0,0,0.6)' : 'none', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+            <div key={cam.id} className="card p-0 overflow-hidden" style={{ cursor: 'pointer', transition: 'all 0.2s', borderColor: isCrowded ? 'red' : (expandedCamera === cam.id ? 'var(--accent)' : 'var(--border)'), boxShadow: isCrowded ? '0 0 15px rgba(255,0,0,0.6)' : 'none', display: 'flex', flexDirection: 'column', minHeight: 0 }}
               onClick={() => setExpandedCamera(expandedCamera === cam.id ? null : cam.id)}>
               <div style={{ position: 'relative', background: '#000', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {cam.status === 'ACTIVE' && cam.hlsUrl ? (
-                  <HLSPlayer src={cam.hlsUrl} autoPlay={expandedCamera === cam.id} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} crowdThreshold={crowdThreshold} />
+                  <HLSPlayer src={cam.hlsUrl} autoPlay={expandedCamera === cam.id} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} crowdThreshold={crowdThreshold}>
+                    {CCTVOverlay}
+                  </HLSPlayer>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--text-dim)' }}>
-                    <AlertCircle size={28} />
-                    <span style={{ fontFamily: 'Share Tech Mono', fontSize: 10, letterSpacing: 1 }}>{cam.status}</span>
-                  </div>
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--text-dim)' }}>
+                      <AlertCircle size={28} />
+                      <span style={{ fontFamily: 'Share Tech Mono', fontSize: 10, letterSpacing: 1 }}>{cam.status}</span>
+                    </div>
+                    {CCTVOverlay}
+                  </>
                 )}
                 
                 <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, alignItems: 'center', pointerEvents: 'none' }}>
@@ -309,12 +325,6 @@ export default function Dashboard() {
                   <span className={`badge ${STATUS_BADGE[cam.status] || 'badge-dim'}`}>
                     ● {cam.status}
                   </span>
-                </div>
-              </div>
-              <div style={{ padding: '10px 14px', flexShrink: 0, borderTop: '1px solid var(--border)' }}>
-                <div style={{ fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 15, color: 'var(--text-bright)', marginBottom: 2 }}>{cam.name}</div>
-                <div style={{ fontFamily: 'Share Tech Mono', fontSize: 10, color: 'var(--text-dim)', letterSpacing: 0.5 }}>
-                  {cam.office?.name} · {cam.office?.district?.name} · {cam.office?.district?.state?.code}
                 </div>
               </div>
             </div>
