@@ -65,6 +65,25 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (err) {
+        // Tab Race Condition Check: Did another tab successfully refresh while we were failing?
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const currentRefreshToken = localStorage.getItem('refreshToken');
+        const currentAccessToken = localStorage.getItem('accessToken');
+        const originalRefreshToken = localStorage.getItem('refreshToken'); // original read earlier
+
+        if (currentRefreshToken && currentAccessToken && currentRefreshToken !== originalRequest.headers.Authorization) {
+           // We might not have the original refreshToken variable here due to scope, but we know if accessToken is there, we can try it.
+           // Actually, if we just check if it's there, let's just use it to retry.
+           // Wait, a better check: if currentAccessToken exists and is different from original request token:
+           const oldToken = originalRequest.headers.Authorization?.split(' ')[1];
+           if (currentAccessToken !== oldToken) {
+              api.defaults.headers.common.Authorization = `Bearer ${currentAccessToken}`;
+              processQueue(null, currentAccessToken);
+              originalRequest.headers.Authorization = `Bearer ${currentAccessToken}`;
+              return api(originalRequest);
+           }
+        }
+
         processQueue(err, null);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');

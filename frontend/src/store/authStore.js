@@ -25,20 +25,8 @@ const useAuthStore = create((set, get) => ({
       const res = await authApi.me();
       set({ user: res.data.data, isAuthenticated: true, isLoading: false });
     } catch {
-      // Access token expired — try refresh
-      try {
-        const res = await authApi.refresh(refreshToken);
-        localStorage.setItem('accessToken', res.data.data.accessToken);
-        localStorage.setItem('refreshToken', res.data.data.refreshToken);
-
-        const me = await authApi.me();
-        set({ user: me.data.data, isAuthenticated: true, isLoading: false });
-      } catch {
-        // Refresh failed — clear everything
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        set({ isLoading: false, isAuthenticated: false, user: null });
-      }
+      // Interceptor handles refresh. If we end up here, it completely failed.
+      set({ isLoading: false, isAuthenticated: false, user: null });
     }
   },
 

@@ -180,7 +180,7 @@ export default function AppLayout() {
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'hidden' }}>
+        <main style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', position: 'relative' }}>
           <Outlet />
         </main>
       </div>

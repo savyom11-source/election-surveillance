@@ -98,7 +98,7 @@ export default function StatsPage() {
   const showBreakdown = totalOffices > 1;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto flex flex-col h-full overflow-y-auto">
+    <div className="p-6 flex flex-col">
       
       <div className="flex items-center justify-between mb-8">
         <div>

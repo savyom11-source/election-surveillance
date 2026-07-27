@@ -61,8 +61,16 @@ export default function Dashboard() {
       else if (selectedState) params.stateId = selectedState;
 
       const res = await camerasApi.list(params);
+      const fetchedPagination = res.data.pagination;
+      
+      // If we are on a page that no longer exists (e.g. cameras went offline), reset to page 1
+      if (page > 1 && fetchedPagination.totalPages > 0 && page > fetchedPagination.totalPages) {
+        setPage(1);
+        return; // The useEffect on `page` will re-trigger fetchCameras naturally
+      }
+
       setCameras(res.data.data);
-      setPagination(res.data.pagination);
+      setPagination(fetchedPagination);
     } catch {
       toast.error('Failed to load cameras');
     } finally {
@@ -81,6 +89,20 @@ export default function Dashboard() {
     
     return () => clearInterval(timer);
   }, [autoRotate, rotateInterval, pagination]);
+
+  // Background polling for camera statuses (syncing across systems)
+  useEffect(() => {
+    // If auto-rotate is aggressively changing pages, we don't need this to clash
+    if (autoRotate && pagination && pagination.totalPages > 1) return;
+    
+    const timer = setInterval(() => {
+      if (!loading && !refreshing) {
+        fetchCameras(true);
+      }
+    }, 15000); // 15 seconds
+    
+    return () => clearInterval(timer);
+  }, [autoRotate, pagination, loading, refreshing, fetchCameras]);
 
   useEffect(() => {
     locationsApi.getStates().then((r) => {
@@ -134,7 +156,7 @@ export default function Dashboard() {
   const inactiveCameras = cameras.filter((c) => c.status !== 'ACTIVE').length;
 
   return (
-    <div className="fade-in" style={{ padding: 16, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div className="fade-in" style={{ padding: 16, height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
       {!showControls && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 8 }}>
@@ -328,7 +350,7 @@ export default function Dashboard() {
               onClick={() => setExpandedCamera(expandedCamera === cam.id ? null : cam.id)}>
               <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 {cam.status === 'ACTIVE' && cam.hlsUrl ? (
-                  <HLSPlayer src={cam.hlsUrl} autoPlay={expandedCamera === cam.id} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} crowdThreshold={crowdThreshold} />
+                  <HLSPlayer src={cam.hlsUrl} autoPlay={true} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} crowdThreshold={crowdThreshold} />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--text-dim)' }}>
                     <AlertCircle size={28} />
