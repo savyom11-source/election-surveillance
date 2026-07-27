@@ -123,10 +123,9 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Stats */}
+          {/* Grid Count */}
           <div style={{ display: 'flex', gap: 8 }}>
-            <span className="badge badge-green">● {activeCameras} Live</span>
-            {inactiveCameras > 0 && <span className="badge badge-dim">● {inactiveCameras} Offline</span>}
+            <span className="badge badge-green">● Showing {cameras.length} of {pagination?.total || 0} Cameras</span>
           </div>
 
           {view === 'grid' && (
