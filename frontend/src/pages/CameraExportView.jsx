@@ -27,6 +27,16 @@ function VideoModal({ camera, onClose }) {
 }
 
 export default function CameraExportView() {
+  const getStreamId = (hlsUrl) => {
+    if (!hlsUrl) return 'N/A';
+    try {
+      const url = new URL(hlsUrl);
+      return url.pathname.replace(/^\//, '').replace(/\/index\.m3u8$/, '');
+    } catch {
+      return 'N/A';
+    }
+  };
+
   const [cameras, setCameras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState(null);
@@ -116,7 +126,7 @@ export default function CameraExportView() {
       const excelData = allData.map(cam => ({
         'Assembly Name': cam.office?.name || 'N/A',
         'IN/OUT': cam.placement === 'INSIDE' ? 'IN' : cam.placement === 'OUTSIDE' ? 'OUT' : 'N/A',
-        'Stream ID': cam.streamUrl || 'N/A',
+        'Stream ID': getStreamId(cam.hlsUrl),
         'Status': cam.status
       }));
 
@@ -204,7 +214,7 @@ export default function CameraExportView() {
                         )}
                       </td>
                       <td style={{ fontFamily: 'Share Tech Mono', fontSize: 11, color: 'var(--text-dim)' }}>
-                        {cam.streamUrl}
+                        {getStreamId(cam.hlsUrl)}
                       </td>
                       <td>
                         <span className={`badge ${cam.status === 'ACTIVE' ? 'badge-green' : cam.status === 'INACTIVE' ? 'badge-red' : 'badge-yellow'}`}>
