@@ -8,9 +8,9 @@ import { Camera, Plus, Search, Edit2, Trash2, RefreshCw, X, CheckCircle, Upload 
 import toast from 'react-hot-toast';
 import { camerasApi, locationsApi } from '../../api/services';
 
-const STATUS_OPTS    = ['ACTIVE', 'INACTIVE', 'MAINTENANCE'];
+const STATUS_OPTS    = ['ACTIVE', 'INACTIVE', 'NOT_CONNECTED'];
 const STREAM_TYPES   = ['RTMP', 'RTSP'];
-const STATUS_BADGE   = { ACTIVE: 'badge-green', INACTIVE: 'badge-dim', MAINTENANCE: 'badge-yellow' };
+const STATUS_BADGE   = { ACTIVE: 'badge-green', INACTIVE: 'badge-dim', NOT_CONNECTED: 'badge-yellow' };
 const TYPE_BADGE     = { RTMP: 'badge-orange', RTSP: 'badge-blue' };
 
 const STREAM_PLACEHOLDERS = {

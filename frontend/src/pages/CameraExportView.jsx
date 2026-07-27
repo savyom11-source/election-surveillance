@@ -159,7 +159,7 @@ export default function CameraExportView() {
           <option value="">All Statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="INACTIVE">Inactive</option>
-          <option value="MAINTENANCE">Maintenance</option>
+          <option value="NOT_CONNECTED">Not Connected</option>
         </select>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
