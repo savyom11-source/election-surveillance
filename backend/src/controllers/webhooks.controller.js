@@ -12,11 +12,14 @@ const handleMediaMtxReady = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Path not provided' });
   }
 
-  // Find camera whose streamUrl ends with this path
+  // Extract stream ID from path (e.g. "live/RDNL0381" -> "RDNL0381")
+  const streamId = path.split('/').pop();
+
+  // Find camera whose streamUrl ends with this stream ID
   const cameras = await prisma.camera.findMany({
     where: {
       streamUrl: {
-        contains: path
+        endsWith: streamId
       }
     }
   });
@@ -40,10 +43,12 @@ const handleMediaMtxNotReady = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Path not provided' });
   }
 
+  const streamId = path.split('/').pop();
+
   const cameras = await prisma.camera.findMany({
     where: {
       streamUrl: {
-        contains: path
+        endsWith: streamId
       }
     }
   });

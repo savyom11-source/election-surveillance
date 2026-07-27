@@ -59,10 +59,13 @@ const getCameras = asyncHandler(async (req, res) => {
   const limit  = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
   const { status, officeId, districtId, stateId, isActive, placement, streamId } = req.query;
 
+  const validStatuses = ['ACTIVE', 'INACTIVE', 'NOT_CONNECTED'];
+  const isValidStatus = status && validStatuses.includes(status.toUpperCase());
+
   const where = {
     ...buildCameraScopeFilter(req.scope),
     ...(isActive !== undefined ? { isActive: isActive === 'true' } : { isActive: true }),
-    ...(status     && { status }),
+    ...(isValidStatus && { status: status.toUpperCase() }),
     ...(placement  && { placement }),
     ...(officeId   && { officeId }),
     ...(districtId && { office: { districtId } }),
