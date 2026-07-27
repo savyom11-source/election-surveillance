@@ -18,9 +18,11 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
   const [state, setState] = useState('loading'); // loading | playing | error | offline
   const [headcount, setHeadcount] = useState(0);
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = (e) => {
+    e.stopPropagation();
     if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen().catch(() => {});
+      const target = containerRef.current?.closest('.camera-cell') || containerRef.current;
+      target?.requestFullscreen().catch(() => {});
     } else {
       document.exitFullscreen().catch(() => {});
     }
@@ -124,7 +126,7 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
   }, [state, autoPlay, onHeadcountUpdate]);
 
   return (
-    <div ref={containerRef} className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center group" style={{ borderRadius: '6px 6px 0 0' }}>
+    <div ref={containerRef} className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center group">
       <style>{`
         .custom-video::-webkit-media-controls-fullscreen-button {
           display: none;
@@ -132,7 +134,7 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
       `}</style>
       <video
         ref={videoRef}
-        className="w-full h-full object-contain custom-video"
+        className="w-full h-full object-fill custom-video"
         muted
         playsInline
         controls={state === 'playing'}
@@ -169,9 +171,6 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
           </div>
           
           <div className="absolute top-2 right-2 flex items-center gap-2">
-            <span style={{ background: '#ffcc00', color: '#000', padding: '2px 8px', borderRadius: 4, fontWeight: 900, fontSize: 11, fontFamily: 'Share Tech Mono', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-              👤 {headcount}
-            </span>
             <button onClick={toggleFullscreen} className="bg-black/60 p-1.5 rounded text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100" title="Full Screen">
               <Maximize size={14} />
             </button>

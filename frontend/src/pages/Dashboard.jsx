@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Video, Filter, Grid, List, AlertCircle } from 'lucide-react';
+import { RefreshCw, Video, Filter, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { camerasApi, locationsApi } from '../api/services';
 import HLSPlayer from '../components/ui/HLSPlayer';
@@ -20,7 +20,6 @@ export default function Dashboard() {
   const [states, setStates]           = useState([]);
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
-  const [view, setView]               = useState('grid'); // 'grid' | 'list'
   const [gridLayout, setGridLayout]   = useState('2:4');
   const [autoRotate, setAutoRotate]   = useState(true);
   const [rotateInterval, setRotateInterval] = useState(30000);
@@ -28,7 +27,9 @@ export default function Dashboard() {
   const [headcounts, setHeadcounts]   = useState({});
   const [selectedState, setSelectedState]       = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [selectedOffice, setSelectedOffice]     = useState('');
   const [districts, setDistricts]               = useState([]);
+  const [offices, setOffices]                   = useState([]);
   const [statusFilter, setStatusFilter]         = useState('ALL');
   const [placementFilter, setPlacementFilter]   = useState('');
   const [streamIdFilter, setStreamIdFilter]     = useState('');
@@ -41,10 +42,11 @@ export default function Dashboard() {
   // Helper booleans for role-based locking
   const isStateLocked = ['STATE_ADMIN', 'DISTRICT_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
   const isDistrictLocked = ['DISTRICT_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
+  const isOfficeLocked = ['OFFICE_OBSERVER'].includes(user?.role);
 
   // Derived limit from grid layout
   const [rows, cols] = gridLayout.split(':').map(Number);
-  const gridLimit = view === 'grid' ? (rows * cols) : 20;
+  const gridLimit = rows * cols;
 
   const fetchCameras = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -53,7 +55,8 @@ export default function Dashboard() {
       if (statusFilter !== 'ALL') params.status = statusFilter;
       if (placementFilter) params.placement = placementFilter;
       if (streamIdFilter) params.streamId = streamIdFilter;
-      if (selectedDistrict) params.districtId = selectedDistrict;
+      if (selectedOffice) params.officeId = selectedOffice;
+      else if (selectedDistrict) params.districtId = selectedDistrict;
       else if (selectedState) params.stateId = selectedState;
 
       const res = await camerasApi.list(params);
@@ -65,18 +68,18 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, statusFilter, placementFilter, streamIdFilter, selectedState, selectedDistrict, gridLimit]);
+  }, [page, statusFilter, placementFilter, streamIdFilter, selectedState, selectedDistrict, selectedOffice, gridLimit]);
 
   // Auto-rotation timer
   useEffect(() => {
-    if (!autoRotate || !pagination || pagination.totalPages <= 1 || view !== 'grid') return;
+    if (!autoRotate || !pagination || pagination.totalPages <= 1) return;
     
     const timer = setInterval(() => {
       setPage(prev => (prev >= pagination.totalPages ? 1 : prev + 1));
     }, rotateInterval);
     
     return () => clearInterval(timer);
-  }, [autoRotate, rotateInterval, pagination, view]);
+  }, [autoRotate, rotateInterval, pagination]);
 
   useEffect(() => {
     locationsApi.getStates().then((r) => {
@@ -102,8 +105,27 @@ export default function Dashboard() {
     } else {
       setDistricts([]);
       setSelectedDistrict('');
+      setOffices([]);
+      setSelectedOffice('');
     }
-  }, [selectedState]);
+  }, [selectedState, isDistrictLocked]);
+
+  useEffect(() => {
+    if (selectedDistrict) {
+      locationsApi.getOffices({ districtId: selectedDistrict })
+        .then((r) => {
+          const fetchedOffices = r.data.data;
+          setOffices(fetchedOffices);
+          if (fetchedOffices.length === 1 && isOfficeLocked) {
+            setSelectedOffice(fetchedOffices[0].id);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setOffices([]);
+      setSelectedOffice('');
+    }
+  }, [selectedDistrict, isOfficeLocked]);
 
   useEffect(() => { fetchCameras(); }, [fetchCameras]);
 
@@ -111,7 +133,7 @@ export default function Dashboard() {
   const inactiveCameras = cameras.filter((c) => c.status !== 'ACTIVE').length;
 
   return (
-    <div className="fade-in" style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="fade-in" style={{ padding: '16px 16px 0 16px', height: '100%', display: 'flex', flexDirection: 'column' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
@@ -128,66 +150,52 @@ export default function Dashboard() {
             <span className="badge badge-green">● Showing {cameras.length} of {pagination?.total || 0} Cameras</span>
           </div>
 
-          {view === 'grid' && (
-            <>
-              {/* Auto Rotate Toggle & Interval */}
-              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
-                <button className="btn btn-sm" 
-                  onClick={() => setAutoRotate(!autoRotate)}
-                  style={{ 
-                    border: 'none', borderRadius: 0, padding: '0 10px', height: 30,
-                    background: autoRotate ? 'rgba(0,200,255,0.1)' : 'transparent',
-                    color: autoRotate ? 'var(--accent)' : 'var(--text-dim)' 
-                  }}>
-                  {autoRotate ? '⏸ Auto' : '▶ Paused'}
-                </button>
-                <select 
-                  className="form-input" 
-                  style={{ width: 'auto', padding: '0 8px', fontSize: 12, height: 30, border: 'none', borderLeft: '1px solid var(--border)', borderRadius: 0, background: 'transparent' }}
-                  value={rotateInterval} 
-                  onChange={(e) => setRotateInterval(Number(e.target.value))}
-                  disabled={!autoRotate}
-                >
-                  <option value={10000}>10s</option>
-                  <option value={20000}>20s</option>
-                  <option value={30000}>30s</option>
-                  <option value={40000}>40s</option>
-                  <option value={50000}>50s</option>
-                  <option value={60000}>1m</option>
-                </select>
-              </div>
+          {/* Auto Rotate Toggle & Interval */}
+          <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
+            <button className="btn btn-sm" 
+              onClick={() => setAutoRotate(!autoRotate)}
+              style={{ 
+                border: 'none', borderRadius: 0, padding: '0 10px', height: 30,
+                background: autoRotate ? 'rgba(0,200,255,0.1)' : 'transparent',
+                color: autoRotate ? 'var(--accent)' : 'var(--text-dim)' 
+              }}>
+              {autoRotate ? '⏸ Auto' : '▶ Paused'}
+            </button>
+            <select 
+              className="form-input" 
+              style={{ width: 'auto', padding: '0 8px', fontSize: 12, height: 30, border: 'none', borderLeft: '1px solid var(--border)', borderRadius: 0, background: 'transparent' }}
+              value={rotateInterval} 
+              onChange={(e) => setRotateInterval(Number(e.target.value))}
+              disabled={!autoRotate}
+            >
+              <option value={10000}>10s</option>
+              <option value={20000}>20s</option>
+              <option value={30000}>30s</option>
+              <option value={40000}>40s</option>
+              <option value={50000}>50s</option>
+              <option value={60000}>1m</option>
+            </select>
+          </div>
 
-              {/* Grid Layout Selector */}
-              <select className="form-input" style={{ width: 'auto', padding: '0 10px', fontSize: 12, height: 30 }}
-                value={gridLayout} onChange={(e) => { setGridLayout(e.target.value); setPage(1); }}>
-                <option value="1:1">1x1 Matrix</option>
-                <option value="1:2">1x2 Matrix</option>
-                <option value="2:2">2x2 Matrix</option>
-                <option value="2:3">2x3 Matrix</option>
-                <option value="2:4">2x4 Matrix</option>
-                <option value="3:3">3x3 Matrix</option>
-                <option value="3:4">3x4 Matrix</option>
-                <option value="4:4">4x4 Matrix</option>
-              </select>
+          {/* Grid Layout Selector */}
+          <select className="form-input" style={{ width: 'auto', padding: '0 10px', fontSize: 12, height: 30 }}
+            value={gridLayout} onChange={(e) => { setGridLayout(e.target.value); setPage(1); }}>
+            <option value="1:1">1x1 Matrix</option>
+            <option value="1:2">1x2 Matrix</option>
+            <option value="2:2">2x2 Matrix</option>
+            <option value="2:3">2x3 Matrix</option>
+            <option value="2:4">2x4 Matrix</option>
+            <option value="3:3">3x3 Matrix</option>
+            <option value="3:4">3x4 Matrix</option>
+            <option value="4:4">4x4 Matrix</option>
+          </select>
 
-              {/* AI Crowd Threshold */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px', height: 30, background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: 5 }}>
-                <span style={{ fontSize: 10, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>🚨 ALERT IF ></span>
-                <input type="number" className="form-input" style={{ width: 40, height: 20, padding: '0 4px', fontSize: 12, textAlign: 'center' }}
-                  value={crowdThreshold} onChange={(e) => setCrowdThreshold(Number(e.target.value))} />
-                <span style={{ fontSize: 10, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>PPL</span>
-              </div>
-            </>
-          )}
-
-          {/* View toggle */}
-          <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 5, overflow: 'hidden' }}>
-            {[['grid', <Grid size={14} />], ['list', <List size={14} />]].map(([v, icon]) => (
-              <button key={v} onClick={() => setView(v)} className="btn btn-sm"
-                style={{ borderRadius: 0, border: 'none', background: view === v ? 'var(--surface3)' : 'transparent', color: view === v ? 'var(--accent)' : 'var(--text-dim)' }}>
-                {icon}
-              </button>
-            ))}
+          {/* AI Crowd Threshold */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px', height: 30, background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: 5 }}>
+            <span style={{ fontSize: 10, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>🚨 ALERT IF ></span>
+            <input type="number" className="form-input" style={{ width: 40, height: 20, padding: '0 4px', fontSize: 12, textAlign: 'center' }}
+              value={crowdThreshold} onChange={(e) => setCrowdThreshold(Number(e.target.value))} />
+            <span style={{ fontSize: 10, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>PPL</span>
           </div>
 
           <button className="btn btn-ghost btn-sm" onClick={() => fetchCameras(true)} disabled={refreshing}>
@@ -220,10 +228,19 @@ export default function Dashboard() {
 
         {districts.length > 0 && (
           <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
-            value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setPage(1); }}
+            value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedOffice(''); setPage(1); }}
             disabled={isDistrictLocked}>
           <option value="">All Districts</option>
           {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+        )}
+
+        {offices.length > 0 && (
+          <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
+            value={selectedOffice} onChange={(e) => { setSelectedOffice(e.target.value); setPage(1); }}
+            disabled={isOfficeLocked}>
+          <option value="">All Assemblies</option>
+          {offices.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
         )}
 
@@ -242,10 +259,11 @@ export default function Dashboard() {
           <option value="NOT_CONNECTED">Not Connected</option>
         </select>
 
-        {(selectedState || selectedDistrict || statusFilter !== 'ALL' || placementFilter || streamIdFilter) && (
+        {(selectedState || selectedDistrict || selectedOffice || statusFilter !== 'ALL' || placementFilter || streamIdFilter) && (
           <button className="btn btn-ghost btn-sm" onClick={() => { 
             if (!isStateLocked) setSelectedState(''); 
             if (!isDistrictLocked) setSelectedDistrict(''); 
+            if (!isOfficeLocked) setSelectedOffice('');
             setStatusFilter('ALL'); 
             setPlacementFilter('');
             setStreamIdFilter('');
@@ -273,99 +291,56 @@ export default function Dashboard() {
       )}
 
       {/* Grid View */}
-      {!loading && cameras.length > 0 && view === 'grid' && (
+      {!loading && cameras.length > 0 && (
         <div style={{ 
           flex: 1, 
           minHeight: 0,
           display: 'grid', 
           gridTemplateColumns: `repeat(${cols}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, 1fr)`,
-          gap: 16,
-          paddingBottom: 20
+          gap: 1,
+          backgroundColor: '#555',
+          border: '1px solid #555'
         }}>
           {cameras.map((cam) => {
             const currentCount = headcounts[cam.id] || 0;
             const isCrowded = currentCount >= crowdThreshold;
 
-            const CCTVOverlay = (
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-10 pb-2 px-3 flex flex-col justify-end pointer-events-none z-10">
-                <div style={{ fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 13, color: 'var(--text-bright)', textShadow: '1px 1px 2px #000', marginBottom: 1, letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {cam.name}
-                </div>
-                <div style={{ fontFamily: 'Share Tech Mono', fontSize: 9, color: '#ccc', textShadow: '1px 1px 2px #000', letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {cam.office?.name} · {cam.office?.district?.name} · {cam.office?.district?.state?.code}
-                </div>
-              </div>
-            );
-
             return (
-            <div key={cam.id} className="card p-0 overflow-hidden" style={{ cursor: 'pointer', transition: 'all 0.2s', borderColor: isCrowded ? 'red' : (expandedCamera === cam.id ? 'var(--accent)' : 'var(--border)'), boxShadow: isCrowded ? '0 0 15px rgba(255,0,0,0.6)' : 'none', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+            <div key={cam.id} className="camera-cell" style={{ background: '#000', cursor: 'pointer', display: 'flex', flexDirection: 'column', minHeight: 0 }}
               onClick={() => setExpandedCamera(expandedCamera === cam.id ? null : cam.id)}>
-              <div style={{ position: 'relative', background: '#000', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 {cam.status === 'ACTIVE' && cam.hlsUrl ? (
-                  <HLSPlayer src={cam.hlsUrl} autoPlay={expandedCamera === cam.id} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} crowdThreshold={crowdThreshold}>
-                    {CCTVOverlay}
-                  </HLSPlayer>
+                  <HLSPlayer src={cam.hlsUrl} autoPlay={expandedCamera === cam.id} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} crowdThreshold={crowdThreshold} />
                 ) : (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--text-dim)' }}>
-                      <AlertCircle size={28} />
-                      <span style={{ fontFamily: 'Share Tech Mono', fontSize: 10, letterSpacing: 1 }}>{cam.status}</span>
-                    </div>
-                    {CCTVOverlay}
-                  </>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--text-dim)' }}>
+                    <AlertCircle size={28} />
+                    <span style={{ fontFamily: 'Share Tech Mono', fontSize: 10, letterSpacing: 1 }}>{cam.status}</span>
+                  </div>
                 )}
                 
-                <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, alignItems: 'center', pointerEvents: 'none' }}>
-                  {cam.placement && (
-                    <span className="badge badge-blue">
-                      {cam.placement === 'INSIDE' ? 'IN' : 'OUT'}
-                    </span>
+                {isCrowded && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, border: '4px solid red', pointerEvents: 'none', zIndex: 20 }} />
+                )}
+              </div>
+              
+              {/* Footer Banner exactly like reference image */}
+              <div style={{ height: 26, background: '#d2dcf0', color: '#0056b3', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px', fontSize: 12, fontWeight: 'bold', fontFamily: 'sans-serif', borderTop: '1px solid #555' }}>
+                <div style={{ minWidth: 50, display: 'flex', alignItems: 'center' }}>
+                  {cam.status === 'ACTIVE' && (
+                    <span title="Crowd Count" style={{ background: 'rgba(0,86,179,0.1)', color: '#0056b3', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>👤 {currentCount}</span>
                   )}
-                  <span className={`badge ${STATUS_BADGE[cam.status] || 'badge-dim'}`}>
-                    ● {cam.status}
-                  </span>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 8px' }}>
+                  {cam.office?.name} - {cam.name}
+                </div>
+                <div style={{ minWidth: 50, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                   <span style={{ fontSize: 10, color: cam.status === 'ACTIVE' ? '#008000' : '#cc0000', textTransform: 'uppercase' }}>● {cam.status === 'NOT_CONNECTED' ? 'OFFLINE' : cam.status}</span>
                 </div>
               </div>
             </div>
             );
           })}
-        </div>
-      )}
-
-      {/* List View */}
-      {!loading && cameras.length > 0 && view === 'list' && (
-        <div className="card">
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Camera</th>
-                  <th>Office</th>
-                  <th>District</th>
-                  <th>State</th>
-                  <th>Stream</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cameras.map((cam) => (
-                  <tr key={cam.id}>
-                    <td><span className={`status-dot ${cam.status.toLowerCase()}`} /></td>
-                    <td style={{ color: 'var(--text-bright)', fontWeight: 600 }}>{cam.name}</td>
-                    <td>{cam.office?.name}</td>
-                    <td>{cam.office?.district?.name}</td>
-                    <td><span className="badge badge-blue">{cam.office?.district?.state?.code}</span></td>
-                    <td>
-                      {cam.hlsUrl
-                        ? <span className="badge badge-green">HLS ✓</span>
-                        : <span className="badge badge-dim">No Stream</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
 
