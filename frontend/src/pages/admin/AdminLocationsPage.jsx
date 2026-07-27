@@ -134,47 +134,35 @@ export default function AdminLocationsPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // ---- Toggle Active/Inactive ----
-  async function toggleState(s) {
+  // ---- Delete Handlers ----
+  async function handleDeleteState(s) {
+    if (!window.confirm(`Are you sure you want to permanently delete State "${s.name}"?\nWARNING: This will delete ALL districts, offices, and cameras inside it! This action cannot be undone.`)) return;
     setActioning(s.id);
     try {
-      if (s.isActive) {
-        await locationsApi.deleteState(s.id);
-        toast.success(`"${s.name}" deactivated (cascade applied)`);
-      } else {
-        await locationsApi.updateState(s.id, { isActive: true });
-        toast.success(`"${s.name}" reactivated`);
-      }
+      await locationsApi.deleteState(s.id);
+      toast.success(`"${s.name}" deleted entirely`);
       fetchAll();
     } catch (err) { toast.error(err.response?.data?.error?.message || 'Action failed'); }
     finally { setActioning(null); }
   }
 
-  async function toggleDistrict(d) {
+  async function handleDeleteDistrict(d) {
+    if (!window.confirm(`Are you sure you want to permanently delete District "${d.name}"?\nWARNING: This will delete ALL offices and cameras inside it! This action cannot be undone.`)) return;
     setActioning(d.id);
     try {
-      if (d.isActive) {
-        await locationsApi.deleteDistrict(d.id);
-        toast.success(`"${d.name}" deactivated (cascade applied)`);
-      } else {
-        await locationsApi.updateDistrict(d.id, { isActive: true });
-        toast.success(`"${d.name}" reactivated`);
-      }
+      await locationsApi.deleteDistrict(d.id);
+      toast.success(`"${d.name}" deleted entirely`);
       fetchAll();
     } catch (err) { toast.error(err.response?.data?.error?.message || 'Action failed'); }
     finally { setActioning(null); }
   }
 
-  async function toggleOffice(o) {
+  async function handleDeleteOffice(o) {
+    if (!window.confirm(`Are you sure you want to permanently delete Office "${o.name}"?\nWARNING: This will delete ALL cameras inside it! This action cannot be undone.`)) return;
     setActioning(o.id);
     try {
-      if (o.isActive) {
-        await locationsApi.deleteOffice(o.id);
-        toast.success(`"${o.name}" deactivated`);
-      } else {
-        await locationsApi.updateOffice(o.id, { isActive: true });
-        toast.success(`"${o.name}" reactivated`);
-      }
+      await locationsApi.deleteOffice(o.id);
+      toast.success(`"${o.name}" deleted entirely`);
       fetchAll();
     } catch (err) { toast.error(err.response?.data?.error?.message || 'Action failed'); }
     finally { setActioning(null); }
@@ -247,7 +235,7 @@ export default function AdminLocationsPage() {
     { key: 'offices',   label: 'Offices',   icon: Building2, count: offices.length },
   ];
 
-  function ActionButtons({ item, onToggle, onEdit }) {
+  function ActionButtons({ item, onDelete, onEdit }) {
     const isActioning = actioning === item.id;
     return (
       <div style={{ display: 'flex', gap: 6 }}>
@@ -255,14 +243,12 @@ export default function AdminLocationsPage() {
           <Edit2 size={12} />Edit
         </button>
         <button
-          className={`btn btn-sm ${item.isActive ? 'btn-danger' : 'btn-secondary'}`}
-          onClick={() => onToggle(item)}
+          className="btn btn-sm btn-danger"
+          onClick={() => onDelete(item)}
           disabled={isActioning}>
           {isActioning
             ? <div className="spinner" style={{ width: 12, height: 12 }} />
-            : item.isActive
-              ? <><Trash2 size={12} />Deactivate</>
-              : <><CheckCircle size={12} />Reactivate</>}
+            : <><Trash2 size={12} />Delete</>}
         </button>
       </div>
     );
@@ -303,47 +289,44 @@ export default function AdminLocationsPage() {
           <div className="table-wrap">
             <table>
               {tab === 'states' && <>
-                <thead><tr><th>Name</th><th>Code</th><th>Status</th><th>Districts</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Code</th><th>Districts</th><th>Actions</th></tr></thead>
                 <tbody>
                   {states.map((s) => (
                     <tr key={s.id}>
                       <td style={{ fontWeight: 600, color: 'var(--text-bright)' }}>{s.name}</td>
                       <td><span className="badge badge-blue">{s.code}</span></td>
-                      <td><span className={`badge ${s.isActive ? 'badge-green' : 'badge-red'}`}>● {s.isActive ? 'Active' : 'Inactive'}</span></td>
                       <td style={{ color: 'var(--text-dim)' }}>{s._count?.districts || 0}</td>
-                      <td><ActionButtons item={s} onToggle={toggleState} onEdit={(item) => setModal({ type: 'states', data: item })} /></td>
+                      <td><ActionButtons item={s} onDelete={handleDeleteState} onEdit={(item) => setModal({ type: 'states', data: item })} /></td>
                     </tr>
                   ))}
                 </tbody>
               </>}
 
               {tab === 'districts' && <>
-                <thead><tr><th>Name</th><th>Code</th><th>State</th><th>Status</th><th>Offices</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Code</th><th>State</th><th>Offices</th><th>Actions</th></tr></thead>
                 <tbody>
                   {districts.map((d) => (
                     <tr key={d.id}>
                       <td style={{ fontWeight: 600, color: 'var(--text-bright)' }}>{d.name}</td>
                       <td><span className="badge badge-dim">{d.code}</span></td>
                       <td><span className="badge badge-blue">{d.state?.code}</span></td>
-                      <td><span className={`badge ${d.isActive ? 'badge-green' : 'badge-red'}`}>● {d.isActive ? 'Active' : 'Inactive'}</span></td>
                       <td style={{ color: 'var(--text-dim)' }}>{d._count?.offices || 0}</td>
-                      <td><ActionButtons item={d} onToggle={toggleDistrict} onEdit={(item) => setModal({ type: 'districts', data: item })} /></td>
+                      <td><ActionButtons item={d} onDelete={handleDeleteDistrict} onEdit={(item) => setModal({ type: 'districts', data: item })} /></td>
                     </tr>
                   ))}
                 </tbody>
               </>}
 
               {tab === 'offices' && <>
-                <thead><tr><th>Name</th><th>District</th><th>State</th><th>Status</th><th>Cameras</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>District</th><th>State</th><th>Cameras</th><th>Actions</th></tr></thead>
                 <tbody>
                   {offices.map((o) => (
                     <tr key={o.id}>
                       <td style={{ fontWeight: 600, color: 'var(--text-bright)' }}>{o.name}</td>
                       <td>{o.district?.name}</td>
                       <td><span className="badge badge-blue">{o.district?.state?.code}</span></td>
-                      <td><span className={`badge ${o.isActive ? 'badge-green' : 'badge-red'}`}>● {o.isActive ? 'Active' : 'Inactive'}</span></td>
                       <td style={{ color: 'var(--text-dim)' }}>{o._count?.cameras || 0}</td>
-                      <td><ActionButtons item={o} onToggle={toggleOffice} onEdit={(item) => setModal({ type: 'offices', data: item })} /></td>
+                      <td><ActionButtons item={o} onDelete={handleDeleteOffice} onEdit={(item) => setModal({ type: 'offices', data: item })} /></td>
                     </tr>
                   ))}
                 </tbody>

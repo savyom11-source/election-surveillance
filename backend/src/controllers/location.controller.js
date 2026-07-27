@@ -159,32 +159,26 @@ const deleteState = asyncHandler(async (req, res) => {
   const existing = await prisma.state.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('State not found');
 
-  // ---- CASCADE SOFT DELETE ----
-  const districts = await prisma.district.findMany({
-    where: { stateId: id },
-    select: { id: true },
-  });
+  // ---- HARD DELETE (CASCADE) ----
+  const districts = await prisma.district.findMany({ where: { stateId: id }, select: { id: true } });
   const districtIds = districts.map((d) => d.id);
 
   const offices = districtIds.length
-    ? await prisma.office.findMany({
-        where: { districtId: { in: districtIds } },
-        select: { id: true },
-      })
+    ? await prisma.office.findMany({ where: { districtId: { in: districtIds } }, select: { id: true } })
     : [];
   const officeIds = offices.map((o) => o.id);
 
+  const cameras = officeIds.length
+    ? await prisma.camera.findMany({ where: { officeId: { in: officeIds } }, select: { id: true } })
+    : [];
+  const cameraIds = cameras.map((c) => c.id);
+
   await prisma.$transaction([
-    ...(officeIds.length
-      ? [prisma.camera.updateMany({ where: { officeId: { in: officeIds } }, data: { isActive: false } })]
-      : []),
-    ...(officeIds.length
-      ? [prisma.office.updateMany({ where: { id: { in: officeIds } }, data: { isActive: false } })]
-      : []),
-    ...(districtIds.length
-      ? [prisma.district.updateMany({ where: { id: { in: districtIds } }, data: { isActive: false } })]
-      : []),
-    prisma.state.update({ where: { id }, data: { isActive: false } }),
+    prisma.userScope.deleteMany({ where: { stateId: id } }),
+    ...(districtIds.length ? [prisma.userScope.deleteMany({ where: { districtId: { in: districtIds } } })] : []),
+    ...(officeIds.length ? [prisma.userScope.deleteMany({ where: { officeId: { in: officeIds } } })] : []),
+    ...(cameraIds.length ? [prisma.auditLog.deleteMany({ where: { cameraId: { in: cameraIds } } })] : []),
+    prisma.state.delete({ where: { id } }),
   ]);
 
   await logAudit({
@@ -192,7 +186,7 @@ const deleteState = asyncHandler(async (req, res) => {
     action: 'DELETE_LOCATION',
     metadata: {
       type: 'state', id, name: existing.name,
-      cascadeDeactivated: { districts: districtIds.length, offices: officeIds.length },
+      cascadeDeleted: { districts: districtIds.length, offices: officeIds.length, cameras: cameraIds.length },
     },
     req,
   });
@@ -200,7 +194,7 @@ const deleteState = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: {
-      message: `State "${existing.name}" deactivated along with ${districtIds.length} district(s) and ${officeIds.length} office(s)`,
+      message: `State "${existing.name}" permanently deleted along with all its data`,
     },
   });
 });
@@ -334,20 +328,19 @@ const deleteDistrict = asyncHandler(async (req, res) => {
   const existing = await prisma.district.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('District not found');
 
-  const offices = await prisma.office.findMany({
-    where: { districtId: id },
-    select: { id: true },
-  });
+  const offices = await prisma.office.findMany({ where: { districtId: id }, select: { id: true } });
   const officeIds = offices.map((o) => o.id);
 
+  const cameras = officeIds.length
+    ? await prisma.camera.findMany({ where: { officeId: { in: officeIds } }, select: { id: true } })
+    : [];
+  const cameraIds = cameras.map((c) => c.id);
+
   await prisma.$transaction([
-    ...(officeIds.length
-      ? [prisma.camera.updateMany({ where: { officeId: { in: officeIds } }, data: { isActive: false } })]
-      : []),
-    ...(officeIds.length
-      ? [prisma.office.updateMany({ where: { id: { in: officeIds } }, data: { isActive: false } })]
-      : []),
-    prisma.district.update({ where: { id }, data: { isActive: false } }),
+    prisma.userScope.deleteMany({ where: { districtId: id } }),
+    ...(officeIds.length ? [prisma.userScope.deleteMany({ where: { officeId: { in: officeIds } } })] : []),
+    ...(cameraIds.length ? [prisma.auditLog.deleteMany({ where: { cameraId: { in: cameraIds } } })] : []),
+    prisma.district.delete({ where: { id } }),
   ]);
 
   await logAudit({
@@ -355,7 +348,7 @@ const deleteDistrict = asyncHandler(async (req, res) => {
     action: 'DELETE_LOCATION',
     metadata: {
       type: 'district', id, name: existing.name,
-      cascadeDeactivated: { offices: officeIds.length },
+      cascadeDeleted: { offices: officeIds.length, cameras: cameraIds.length },
     },
     req,
   });
@@ -363,7 +356,7 @@ const deleteDistrict = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: {
-      message: `District "${existing.name}" deactivated along with ${officeIds.length} office(s)`,
+      message: `District "${existing.name}" permanently deleted along with all its data`,
     },
   });
 });
@@ -490,9 +483,13 @@ const deleteOffice = asyncHandler(async (req, res) => {
   const existing = await prisma.office.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('Office not found');
 
+  const cameras = await prisma.camera.findMany({ where: { officeId: id }, select: { id: true } });
+  const cameraIds = cameras.map((c) => c.id);
+
   await prisma.$transaction([
-    prisma.camera.updateMany({ where: { officeId: id }, data: { isActive: false } }),
-    prisma.office.update({ where: { id }, data: { isActive: false } }),
+    prisma.userScope.deleteMany({ where: { officeId: id } }),
+    ...(cameraIds.length ? [prisma.auditLog.deleteMany({ where: { cameraId: { in: cameraIds } } })] : []),
+    prisma.office.delete({ where: { id } }),
   ]);
 
   await logAudit({
@@ -504,7 +501,7 @@ const deleteOffice = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: { message: `Office "${existing.name}" deactivated along with its cameras` },
+    data: { message: `Office "${existing.name}" permanently deleted` },
   });
 });
 
