@@ -6,20 +6,18 @@ const prisma = require('../config/prisma');
 const { asyncHandler } = require('../utils/errors');
 const { buildCameraScopeFilter } = require('../middleware/rbac');
 
-// Helper to format raw camera counts into the 5 metrics
+// Helper to format raw camera counts into the metrics
 function formatStats(cameras) {
   const total = cameras.length;
-  const online = cameras.filter(c => c.status === 'ACTIVE').length;
-  const notConnected = cameras.filter(c => c.status === 'INACTIVE').length;
-  const maintenance = cameras.filter(c => c.status === 'MAINTENANCE').length;
+  const active = cameras.filter(c => c.status === 'ACTIVE').length;
+  const inactive = cameras.filter(c => c.status === 'INACTIVE').length;
+  const notConnected = cameras.filter(c => c.status === 'NOT_CONNECTED').length;
   
   return {
     total,
-    online,
-    notConnected,
-    onceLive: online, // Mapped to online per current schema
-    activeToday: online, // Mapped to online per current schema
-    maintenance
+    active,
+    inactive,
+    notConnected
   };
 }
 

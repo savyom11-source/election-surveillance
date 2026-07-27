@@ -19,8 +19,9 @@ function MiniStats({ stats }) {
   return (
     <div className="flex gap-4 text-xs font-mono font-bold bg-dark-900/50 px-4 py-2 rounded-lg border border-dark-600">
       <span className="text-slate-300">TOTAL: {stats.total}</span>
-      <span className="text-teal-400">LIVE: {stats.online}</span>
-      <span className="text-slate-500">OFFLINE: {stats.notConnected}</span>
+      <span className="text-teal-400">ACTIVE: {stats.active}</span>
+      <span className="text-red-400">INACTIVE: {stats.inactive}</span>
+      <span className="text-slate-500">NOT CONNECTED: {stats.notConnected}</span>
     </div>
   );
 }
@@ -38,16 +39,13 @@ function RegionCard({ region }) {
           <div className="text-slate-300 font-mono text-lg font-bold">{stats.total}</div>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center bg-teal-500/10 rounded py-2">
-          <div className="text-teal-400 font-mono text-lg font-bold">{stats.online}</div>
+          <div className="text-teal-400 font-mono text-lg font-bold">{stats.active}</div>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center bg-red-500/10 rounded py-2">
+          <div className="text-red-400 font-mono text-lg font-bold">{stats.inactive}</div>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center bg-slate-700/50 rounded py-2">
           <div className="text-slate-400 font-mono text-lg font-bold">{stats.notConnected}</div>
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center bg-teal-600/10 rounded py-2">
-          <div className="text-teal-500 font-mono text-lg font-bold">{stats.onceLive}</div>
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center bg-indigo-500/10 rounded py-2">
-          <div className="text-indigo-400 font-mono text-lg font-bold">{stats.activeToday}</div>
         </div>
       </div>
     </div>
@@ -146,42 +144,34 @@ export default function StatsPage() {
         <StatPill 
           icon={Camera} 
           value={overall.total} 
-          label="Total"
+          label="Total Cameras"
           colorClass="text-slate-300"
           bgColorClass="bg-slate-800/40"
           borderColorClass="border-slate-700"
         />
         <StatPill 
           icon={Radio} 
-          value={overall.online} 
-          label="Online"
+          value={overall.active} 
+          label="Active (Live)"
           colorClass="text-teal-400"
           bgColorClass="bg-teal-900/20"
           borderColorClass="border-teal-800/50"
         />
         <StatPill 
+          icon={Activity} 
+          value={overall.inactive} 
+          label="Inactive (Disconnected)"
+          colorClass="text-red-400"
+          bgColorClass="bg-red-900/20"
+          borderColorClass="border-red-800/50"
+        />
+        <StatPill 
           icon={VideoOff} 
           value={overall.notConnected} 
-          label="Not Connected"
+          label="Not Connected Yet"
           colorClass="text-slate-500"
           bgColorClass="bg-slate-900/40"
           borderColorClass="border-slate-800"
-        />
-        <StatPill 
-          icon={Activity} 
-          value={overall.onceLive} 
-          label="Once Live"
-          colorClass="text-teal-500"
-          bgColorClass="bg-teal-900/10"
-          borderColorClass="border-teal-900/30"
-        />
-        <StatPill 
-          icon={RefreshCw} 
-          value={overall.activeToday} 
-          label="Active Today"
-          colorClass="text-indigo-400"
-          bgColorClass="bg-indigo-900/20"
-          borderColorClass="border-indigo-800/50"
         />
       </div>
 
