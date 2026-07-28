@@ -77,7 +77,10 @@ const getCameras = asyncHandler(async (req, res) => {
     prisma.camera.findMany({
       where,
       select: cameraSelect,
-      orderBy: { createdAt: 'asc' },
+      orderBy: [
+        { status: 'asc' },
+        { createdAt: 'asc' }
+      ],
       skip: (page - 1) * limit,
       take: limit,
     }),
