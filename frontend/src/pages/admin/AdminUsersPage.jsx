@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Plus, Search, Shield, CheckCircle, XCircle, RefreshCw, KeyRound, X } from 'lucide-react';
+import { Users, Plus, Search, Shield, CheckCircle, XCircle, RefreshCw, KeyRound, X, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usersApi, locationsApi } from '../../api/services';
 
@@ -195,6 +195,17 @@ export default function AdminUsersPage() {
     } catch { toast.error('Failed to reset password'); }
   }
 
+  async function deleteUser(user) {
+    if (!window.confirm(`Are you absolutely sure you want to permanently delete ${user.name}? This cannot be undone.`)) return;
+    setActioning(user.id);
+    try {
+      await usersApi.delete(user.id);
+      toast.success(`${user.name} deleted permanently`);
+      fetchUsers();
+    } catch { toast.error('Failed to delete user'); }
+    finally { setActioning(null); }
+  }
+
   return (
     <div className="fade-in" style={{ padding: 24 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
@@ -259,8 +270,11 @@ export default function AdminUsersPage() {
                           {u.isActive ? <XCircle size={12} /> : <CheckCircle size={12} />}
                           {u.isActive ? 'Deactivate' : 'Activate'}
                         </button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => resetPassword(u)} title="Reset Password">
+                        <button className="btn btn-ghost btn-sm" onClick={() => resetPassword(u)} title="Reset Password" disabled={actioning === u.id}>
                           <KeyRound size={12} />
+                        </button>
+                        <button className="btn btn-danger btn-sm" onClick={() => deleteUser(u)} title="Delete User" disabled={actioning === u.id}>
+                          <Trash2 size={12} />
                         </button>
                       </div>
                     </td>

@@ -363,6 +363,38 @@ const resetPassword = asyncHandler(async (req, res) => {
   });
 });
 
+// ----------------------------------------------------------
+// DELETE /api/users/:id — hard delete
+// ----------------------------------------------------------
+const deleteUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (id === req.user.userId) {
+    throw new ValidationError('You cannot delete your own account');
+  }
+
+  const existing = await prisma.user.findUnique({ where: { id } });
+  if (!existing) throw new NotFoundError('User not found');
+
+  await prisma.$transaction([
+    // Unlink any users created by this user
+    prisma.user.updateMany({ where: { createdById: id }, data: { createdById: null } }),
+    // Delete their audit logs
+    prisma.auditLog.deleteMany({ where: { userId: id } }),
+    // Delete the user
+    prisma.user.delete({ where: { id } }),
+  ]);
+
+  await logAudit({
+    userId: req.user.userId,
+    action: 'DELETE_USER',
+    metadata: { targetUserId: id, action: 'hard_delete', name: existing.name },
+    req,
+  });
+
+  res.json({ success: true, data: { message: 'User permanently deleted' } });
+});
+
 module.exports = {
   createUser,
   getUsers,
@@ -371,4 +403,5 @@ module.exports = {
   deactivateUser,
   activateUser,
   resetPassword,
+  deleteUser,
 };

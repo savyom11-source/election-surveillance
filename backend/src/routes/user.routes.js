@@ -28,5 +28,6 @@ router.patch('/:id', validate(updateUserSchema), userController.updateUser);
 router.patch('/:id/deactivate', userController.deactivateUser);
 router.patch('/:id/activate', userController.activateUser);
 router.patch('/:id/reset-password', validate(resetPasswordSchema), userController.resetPassword);
+router.delete('/:id', userController.deleteUser);
 
 module.exports = router;

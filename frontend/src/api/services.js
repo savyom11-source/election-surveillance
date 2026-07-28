@@ -20,6 +20,7 @@ export const usersApi = {
   deactivate:    (id)         => api.patch(`/users/${id}/deactivate`),
   activate:      (id)         => api.patch(`/users/${id}/activate`),
   resetPassword: (id, data)   => api.patch(`/users/${id}/reset-password`, data),
+  delete:        (id)         => api.delete(`/users/${id}`),
 };
 
 export const locationsApi = {
