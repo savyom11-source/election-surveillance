@@ -178,33 +178,43 @@ export default function StatsPage() {
       {/* Hierarchical Breakdown - Only show if there's more than 1 office */}
       {showBreakdown && (
         <div className="flex flex-col gap-8">
-          {states.map(state => (
-            <div key={state.id} className="bg-dark-800/20 border border-dark-600 rounded-xl p-6">
-              
-              <div className="flex items-center justify-between mb-6 border-b border-dark-500 pb-4">
-                <h2 className="text-xl font-bold text-blue-400 tracking-wider uppercase">{state.name} State</h2>
-                <MiniStats stats={state.stats} />
-              </div>
-
-              <div className="flex flex-col gap-6 pl-4">
-                {state.districts.map(district => (
-                  <div key={district.id} className="border-l-2 border-dark-600 pl-6">
-                    
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-slate-300 uppercase tracking-wide">{district.name} District</h3>
-                      <MiniStats stats={district.stats} />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {district.offices.map(office => (
-                        <RegionCard key={office.id} region={office} />
-                      ))}
-                    </div>
+          {states.map(state => {
+            const showStateHeader = user?.role === 'SUPER_ADMIN' || user?.role === 'STATE_ADMIN';
+            return (
+              <div key={state.id} className={showStateHeader ? "bg-dark-800/20 border border-dark-600 rounded-xl p-6" : ""}>
+                
+                {showStateHeader && (
+                  <div className="flex items-center justify-between mb-6 border-b border-dark-500 pb-4">
+                    <h2 className="text-xl font-bold text-blue-400 tracking-wider uppercase">{state.name} State</h2>
+                    <MiniStats stats={state.stats} />
                   </div>
-                ))}
+                )}
+
+                <div className={`flex flex-col gap-6 ${showStateHeader ? 'pl-4' : ''}`}>
+                  {state.districts.map(district => {
+                    const showDistrictHeader = user?.role !== 'OFFICE_OBSERVER';
+                    return (
+                      <div key={district.id} className={showDistrictHeader && showStateHeader ? "border-l-2 border-dark-600 pl-6" : ""}>
+                        
+                        {showDistrictHeader && (
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-slate-300 uppercase tracking-wide">{district.name} District</h3>
+                            <MiniStats stats={district.stats} />
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {district.offices.map(office => (
+                            <RegionCard key={office.id} region={office} />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
         </>

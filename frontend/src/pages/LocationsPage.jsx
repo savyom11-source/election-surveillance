@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, MapPin, Building2, Camera, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { locationsApi, camerasApi } from '../api/services';
+import useAuthStore from '../store/authStore';
 
 function CameraRow({ camera }) {
   const statusColor = { ACTIVE: 'var(--accent2)', INACTIVE: 'var(--text-dim)', MAINTENANCE: 'var(--warn)' };
@@ -28,6 +29,9 @@ function OfficeRow({ office }) {
   const [cameras, setCameras] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const { user } = useAuthStore();
+  const showOfficeHeader = true; // Always show office header
+
   async function toggle() {
     if (!open && cameras.length === 0) {
       setLoading(true);
@@ -40,18 +44,27 @@ function OfficeRow({ office }) {
     setOpen((o) => !o);
   }
 
+  // Auto-expand if office observer (they only have 1 office usually)
+  useEffect(() => {
+    if (user?.role === 'OFFICE_OBSERVER' && !open) {
+      toggle();
+    }
+  }, [user]);
+
   return (
     <div style={{ marginTop: 6 }}>
-      <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 5, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface2)', transition: 'background 0.15s' }}
-        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface3)'}
-        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface2)'}>
-        {open ? <ChevronDown size={13} color="var(--accent)" /> : <ChevronRight size={13} color="var(--text-dim)" />}
-        <Building2 size={13} color="var(--accent3)" />
-        <span style={{ flex: 1, fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 14, color: 'var(--text-bright)' }}>{office.name}</span>
-        <span className="badge badge-orange" style={{ fontSize: 8 }}>{office._count?.cameras || 0} cams</span>
-      </div>
-      {open && (
-        <div style={{ paddingLeft: 24, marginTop: 4 }}>
+      {showOfficeHeader && (
+        <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 5, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface2)', transition: 'background 0.15s' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface3)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface2)'}>
+          {open ? <ChevronDown size={13} color="var(--accent)" /> : <ChevronRight size={13} color="var(--text-dim)" />}
+          <Building2 size={13} color="var(--accent3)" />
+          <span style={{ flex: 1, fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 14, color: 'var(--text-bright)' }}>{office.name}</span>
+          <span className="badge badge-orange" style={{ fontSize: 8 }}>{office._count?.cameras || 0} cams</span>
+        </div>
+      )}
+      {(open || !showOfficeHeader) && (
+        <div style={{ paddingLeft: showOfficeHeader ? 24 : 0, marginTop: 4 }}>
           {loading && <div style={{ display: 'flex', gap: 8, padding: 8, color: 'var(--text-dim)', fontSize: 12 }}><div className="spinner" style={{ width: 14, height: 14 }} /> Loading cameras...</div>}
           {!loading && cameras.length === 0 && <p style={{ padding: 8, color: 'var(--text-dim)', fontFamily: 'Share Tech Mono', fontSize: 11 }}>No cameras in this office</p>}
           {cameras.map((cam) => <CameraRow key={cam.id} camera={cam} />)}
@@ -66,6 +79,9 @@ function DistrictRow({ district }) {
   const [offices, setOffices] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const { user } = useAuthStore();
+  const showDistrictHeader = user?.role !== 'OFFICE_OBSERVER';
+
   async function toggle() {
     if (!open && offices.length === 0) {
       setLoading(true);
@@ -78,19 +94,28 @@ function DistrictRow({ district }) {
     setOpen((o) => !o);
   }
 
+  // Auto-expand if district/office observer
+  useEffect(() => {
+    if (!showDistrictHeader && !open) {
+      toggle();
+    }
+  }, [showDistrictHeader]);
+
   return (
-    <div style={{ marginTop: 8 }}>
-      <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', transition: 'border-color 0.15s' }}
-        onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent2)'}
-        onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}>
-        {open ? <ChevronDown size={14} color="var(--accent2)" /> : <ChevronRight size={14} color="var(--text-dim)" />}
-        <MapPin size={14} color="var(--accent2)" />
-        <span style={{ flex: 1, fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 15, color: 'var(--text-bright)' }}>{district.name}</span>
-        <span className="badge badge-dim" style={{ fontSize: 8 }}>{district.code}</span>
-        <span className="badge badge-green" style={{ fontSize: 8 }}>{district._count?.offices || 0} offices</span>
-      </div>
-      {open && (
-        <div style={{ paddingLeft: 28, marginTop: 4 }}>
+    <div style={{ marginTop: showDistrictHeader ? 8 : 0 }}>
+      {showDistrictHeader && (
+        <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', transition: 'border-color 0.15s' }}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent2)'}
+          onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}>
+          {open ? <ChevronDown size={14} color="var(--accent2)" /> : <ChevronRight size={14} color="var(--text-dim)" />}
+          <MapPin size={14} color="var(--accent2)" />
+          <span style={{ flex: 1, fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 15, color: 'var(--text-bright)' }}>{district.name}</span>
+          <span className="badge badge-dim" style={{ fontSize: 8 }}>{district.code}</span>
+          <span className="badge badge-green" style={{ fontSize: 8 }}>{district._count?.offices || 0} offices</span>
+        </div>
+      )}
+      {(open || !showDistrictHeader) && (
+        <div style={{ paddingLeft: showDistrictHeader ? 28 : 0, marginTop: 4 }}>
           {loading && <div style={{ display: 'flex', gap: 8, padding: 8, color: 'var(--text-dim)', fontSize: 12 }}><div className="spinner" style={{ width: 14, height: 14 }} /> Loading offices...</div>}
           {!loading && offices.length === 0 && <p style={{ padding: 8, color: 'var(--text-dim)', fontFamily: 'Share Tech Mono', fontSize: 11 }}>No offices in this district</p>}
           {offices.map((o) => <OfficeRow key={o.id} office={o} />)}
@@ -107,12 +132,33 @@ export default function LocationsPage() {
   const [loadingStates, setLoadingStates] = useState({});
   const [loading, setLoading] = useState(true);
 
+  const { user } = useAuthStore();
+  const showStateHeader = user?.role === 'SUPER_ADMIN' || user?.role === 'STATE_ADMIN';
+
   useEffect(() => {
     locationsApi.getStates()
-      .then((r) => setStates(r.data.data))
+      .then(async (r) => {
+        const fetchedStates = r.data.data;
+        setStates(fetchedStates);
+        
+        // Auto-expand state if user is restricted
+        if (!showStateHeader && fetchedStates.length > 0) {
+          const sId = fetchedStates[0].id;
+          setOpenStates({ [sId]: true });
+          setLoadingStates({ [sId]: true });
+          try {
+            const dRes = await locationsApi.getDistricts({ stateId: sId });
+            setDistrictsByState({ [sId]: dRes.data.data });
+          } catch {
+            // ignore
+          } finally {
+            setLoadingStates({ [sId]: false });
+          }
+        }
+      })
       .catch(() => toast.error('Failed to load states'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [showStateHeader]);
 
   async function toggleState(stateId) {
     if (!openStates[stateId] && !districtsByState[stateId]) {
@@ -150,17 +196,19 @@ export default function LocationsPage() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {states.map((state) => (
-          <div key={state.id} className="card">
-            <div onClick={() => toggleState(state.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', cursor: 'pointer', userSelect: 'none' }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface3)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = ''}>
-              {openStates[state.id] ? <ChevronDown size={16} color="var(--accent)" /> : <ChevronRight size={16} color="var(--text-dim)" />}
-              <span style={{ fontFamily: 'Barlow Condensed', fontWeight: 900, fontSize: 18, color: 'var(--text-bright)', textTransform: 'uppercase', letterSpacing: 1 }}>{state.name}</span>
-              <span className="badge badge-blue" style={{ marginLeft: 4 }}>{state.code}</span>
-              <span className="badge badge-dim" style={{ marginLeft: 'auto' }}>{state._count?.districts || 0} districts</span>
-            </div>
-            {openStates[state.id] && (
-              <div style={{ padding: '0 18px 18px', borderTop: '1px solid var(--border)' }}>
+          <div key={state.id} className={showStateHeader ? "card" : ""}>
+            {showStateHeader && (
+              <div onClick={() => toggleState(state.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', cursor: 'pointer', userSelect: 'none' }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface3)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = ''}>
+                {openStates[state.id] ? <ChevronDown size={16} color="var(--accent)" /> : <ChevronRight size={16} color="var(--text-dim)" />}
+                <span style={{ fontFamily: 'Barlow Condensed', fontWeight: 900, fontSize: 18, color: 'var(--text-bright)', textTransform: 'uppercase', letterSpacing: 1 }}>{state.name}</span>
+                <span className="badge badge-blue" style={{ marginLeft: 4 }}>{state.code}</span>
+                <span className="badge badge-dim" style={{ marginLeft: 'auto' }}>{state._count?.districts || 0} districts</span>
+              </div>
+            )}
+            {(openStates[state.id] || !showStateHeader) && (
+              <div style={{ padding: showStateHeader ? '0 18px 18px' : 0, borderTop: showStateHeader && openStates[state.id] ? '1px solid var(--border)' : 'none' }}>
                 {loadingStates[state.id] && (
                   <div style={{ display: 'flex', gap: 8, padding: 12, color: 'var(--text-dim)', fontSize: 12 }}>
                     <div className="spinner" style={{ width: 14, height: 14 }} /> Loading districts...

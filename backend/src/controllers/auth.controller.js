@@ -174,6 +174,15 @@ const me = asyncHandler(async (req, res) => {
 
   if (!user) throw new NotFoundError('User not found');
 
+  // Sanitize scopes based on role so frontend doesn't show irrelevant dropdowns
+  if (user.role === 'OFFICE_OBSERVER') {
+    user.userScopes.forEach(s => { delete s.state; delete s.district; });
+  } else if (user.role === 'DISTRICT_OBSERVER') {
+    user.userScopes.forEach(s => { delete s.state; delete s.office; });
+  } else if (user.role === 'STATE_ADMIN') {
+    user.userScopes.forEach(s => { delete s.district; delete s.office; });
+  }
+
   res.json({ success: true, data: user });
 });
 
