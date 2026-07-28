@@ -45,11 +45,12 @@ async function loadUserScope(req, res, next) {
       select: { stateId: true, districtId: true, officeId: true },
     });
 
+    const role = req.user.role;
     req.scope = {
       isSuperAdmin: false,
-      stateIds: scopes.filter(s => s.stateId).map(s => s.stateId),
-      districtIds: scopes.filter(s => s.districtId).map(s => s.districtId),
-      officeIds: scopes.filter(s => s.officeId).map(s => s.officeId),
+      stateIds: role === 'STATE_ADMIN' ? scopes.filter(s => s.stateId).map(s => s.stateId) : [],
+      districtIds: role === 'DISTRICT_OBSERVER' ? scopes.filter(s => s.districtId).map(s => s.districtId) : [],
+      officeIds: role === 'OFFICE_OBSERVER' ? scopes.filter(s => s.officeId).map(s => s.officeId) : [],
     };
 
     next();

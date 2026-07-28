@@ -40,9 +40,10 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
-        backBufferLength: 5, // Keep less old video in memory
-        liveSyncDurationCount: 2, // Target 2 segments from the live edge
-        liveMaxLatencyDurationCount: 3, // If we fall behind by 3 segments (e.g. background tab), jump instantly to the live edge
+        backBufferLength: 5,
+        liveSyncDurationCount: 2,
+        liveMaxLatencyDurationCount: 3,
+        liveBackBufferLength: 0,
       });
       hlsRef.current = hls;
       hls.loadSource(src);
@@ -75,19 +76,16 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
         }
       });
 
-      {/* Handle tab visibility changes to resume video and catch up to live edge */}
+      // Handle tab visibility changes to resume video and catch up to live edge
       const handleVisibility = () => {
         if (document.visibilityState === 'visible' && autoPlay) {
           if (video.paused) {
             video.play().catch(() => {});
           }
-          if (hlsRef.current) {
-            // Force jump to the absolute live edge
-            const livePos = hlsRef.current.liveSyncPosition;
-            if (livePos !== null && !isNaN(livePos)) {
-              if (Math.abs(video.currentTime - livePos) > 2) {
-                 video.currentTime = livePos;
-              }
+          if (hlsRef.current && hlsRef.current.liveSyncPosition) {
+            const lag = hlsRef.current.liveSyncPosition - video.currentTime;
+            if (lag > 5) { // If more than 5s behind, jump to live
+              video.currentTime = hlsRef.current.liveSyncPosition;
             }
           }
         }

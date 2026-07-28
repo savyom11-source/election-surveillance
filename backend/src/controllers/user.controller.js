@@ -88,11 +88,15 @@ async function validateScopeIdsExist(scope) {
 /**
  * Flatten { stateIds, districtIds, officeIds } into UserScope.createMany rows
  */
-function scopeToCreateData(scope, userId) {
+function scopeToCreateData(scope, userId, role) {
   const rows = [];
-  for (const stateId of scope.stateIds || []) rows.push({ userId, stateId });
-  for (const districtId of scope.districtIds || []) rows.push({ userId, districtId });
-  for (const officeId of scope.officeIds || []) rows.push({ userId, officeId });
+  if (role === 'STATE_ADMIN') {
+    for (const stateId of scope.stateIds || []) rows.push({ userId, stateId });
+  } else if (role === 'DISTRICT_OBSERVER') {
+    for (const districtId of scope.districtIds || []) rows.push({ userId, districtId });
+  } else if (role === 'OFFICE_OBSERVER') {
+    for (const officeId of scope.officeIds || []) rows.push({ userId, officeId });
+  }
   return rows;
 }
 
@@ -123,7 +127,7 @@ const createUser = asyncHandler(async (req, res) => {
     });
 
     if (role !== 'SUPER_ADMIN') {
-      const scopeRows = scopeToCreateData(scope, user.id);
+      const scopeRows = scopeToCreateData(scope, user.id, role);
       if (scopeRows.length) {
         await tx.userScope.createMany({ data: scopeRows });
       }
@@ -251,7 +255,7 @@ const updateUser = asyncHandler(async (req, res) => {
       // Full replace of scope set
       await tx.userScope.deleteMany({ where: { userId: id } });
       if (effectiveRole !== 'SUPER_ADMIN') {
-        const scopeRows = scopeToCreateData(scope, id);
+        const scopeRows = scopeToCreateData(scope, id, effectiveRole);
         if (scopeRows.length) await tx.userScope.createMany({ data: scopeRows });
       }
     } else if (role === 'SUPER_ADMIN' && target.role !== 'SUPER_ADMIN') {
