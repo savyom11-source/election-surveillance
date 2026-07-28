@@ -75,16 +75,19 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
         }
       });
 
-      // Handle tab visibility changes to resume video and catch up to live edge
+      {/* Handle tab visibility changes to resume video and catch up to live edge */}
       const handleVisibility = () => {
         if (document.visibilityState === 'visible' && autoPlay) {
           if (video.paused) {
             video.play().catch(() => {});
           }
-          if (hlsRef.current && hlsRef.current.liveSyncPosition) {
-            const lag = hlsRef.current.liveSyncPosition - video.currentTime;
-            if (lag > 5) { // If more than 5s behind, jump to live
-              video.currentTime = hlsRef.current.liveSyncPosition;
+          if (hlsRef.current) {
+            // Force jump to the absolute live edge
+            const livePos = hlsRef.current.liveSyncPosition;
+            if (livePos !== null && !isNaN(livePos)) {
+              if (Math.abs(video.currentTime - livePos) > 2) {
+                 video.currentTime = livePos;
+              }
             }
           }
         }
@@ -98,7 +101,6 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
       };
 
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari native HLS
       video.src = src;
       video.addEventListener('loadedmetadata', () => {
         if (autoPlay) video.play().catch(() => {});
@@ -106,7 +108,19 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
       });
       video.addEventListener('error', () => setState('error'));
 
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible' && autoPlay) {
+          if (video.paused) video.play().catch(() => {});
+          // HTML5 native HLS live edge jump
+          if (video.seekable.length > 0) {
+            video.currentTime = video.seekable.end(video.seekable.length - 1);
+          }
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
+
       return () => {
+        document.removeEventListener('visibilitychange', handleVisibility);
         video.removeAttribute('src');
         video.load();
       };
@@ -140,10 +154,19 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
       } catch (e) {
         // Ignore detection errors
       }
-    }, 1500 + Math.random() * 1000); // Stagger intervals between 1.5 - 2.5 seconds (averages 2s)
+    }, 1500 + Math.random() * 1000); 
 
     return () => clearInterval(interval);
   }, [state, autoPlay, onHeadcountUpdate]);
+
+  const [isMuted, setIsMuted] = useState(true);
+  const toggleMute = (e) => {
+    e.stopPropagation();
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
+    }
+  };
 
   return (
     <div ref={containerRef} className="relative w-full h-full bg-black overflow-hidden flex items-center justify-center group">
@@ -155,9 +178,12 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
       <video
         ref={videoRef}
         className="w-full h-full object-fill custom-video"
-        muted
+        defaultMuted
         playsInline
         controls={state === 'playing'}
+        onVolumeChange={() => {
+          if (videoRef.current) setIsMuted(videoRef.current.muted || videoRef.current.volume === 0);
+        }}
       />
 
       {/* Overlays */}
@@ -191,6 +217,9 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
           </div>
           
           <div className="absolute top-2 right-2 flex items-center gap-2">
+            <button onClick={toggleMute} className="bg-black/60 px-2 py-1.5 rounded text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100 font-mono text-xs shadow-md border border-slate-600">
+              {isMuted ? '🔇 UNMUTE' : '🔊 MUTE'}
+            </button>
             <button onClick={toggleFullscreen} className="bg-black/60 p-1.5 rounded text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100" title="Full Screen">
               <Maximize size={14} />
             </button>
