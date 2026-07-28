@@ -73,23 +73,26 @@ const getCameras = asyncHandler(async (req, res) => {
     ...(streamId   && { streamUrl: { contains: streamId, mode: 'insensitive' } }),
   };
 
-  const [cameras, total] = await Promise.all([
-    prisma.camera.findMany({
-      where,
-      select: cameraSelect,
-      orderBy: [
-        { status: 'asc' },
-        { createdAt: 'asc' }
-      ],
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.camera.count({ where }),
-  ]);
+  const allCameras = await prisma.camera.findMany({
+    where,
+    select: cameraSelect,
+  });
+
+  // Custom Sort: ACTIVE -> NOT_CONNECTED -> INACTIVE
+  const statusWeight = { 'ACTIVE': 1, 'NOT_CONNECTED': 2, 'INACTIVE': 3 };
+  
+  allCameras.sort((a, b) => {
+    const weightDiff = (statusWeight[a.status] || 99) - (statusWeight[b.status] || 99);
+    if (weightDiff !== 0) return weightDiff;
+    return new Date(b.createdAt) - new Date(a.createdAt); // Newest first for same status
+  });
+
+  const total = allCameras.length;
+  const paginatedCameras = allCameras.slice((page - 1) * limit, page * limit);
 
   res.json({
     success: true,
-    data: cameras.map(formatCamera),
+    data: paginatedCameras.map(formatCamera),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
   });
 });
