@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, MapPin, Film, Users, Video, Activity,
-  ShieldCheck, LogOut, Menu, Bell, ClipboardList, Map
+  ShieldCheck, LogOut, Menu, Bell, ClipboardList, Map, Maximize, List
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
@@ -19,8 +19,10 @@ const ROLE_LABELS = {
 };
 
 const NAV_ITEMS = [
-  { to: '/dashboard',  icon: LayoutGrid, label: 'Live Dashboard' },
   { to: '/stats',      icon: Activity,   label: 'Stats Overview' },
+  { to: '/camera-list', icon: List,       label: 'Camera List' },
+  // { to: '/dashboard',  icon: LayoutGrid, label: 'Live Dashboard' },
+  { to: '/grid',       icon: LayoutGrid, label: 'Camera Grid', external: true },
   { to: '/locations',  icon: MapPin,     label: 'Locations'      },
 ];
 
@@ -46,6 +48,18 @@ export default function AppLayout() {
     navigate('/login');
   }
 
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        toast.error(`Could not enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
   function SidebarContent() {
     return (
       <div style={{
@@ -64,9 +78,6 @@ export default function AppLayout() {
             <div style={{ fontFamily: 'Barlow Condensed', fontWeight: 900, fontSize: 13, color: 'var(--text-bright)', textTransform: 'uppercase', letterSpacing: 1 }}>
               Election Surveillance
             </div>
-            <div style={{ fontFamily: 'Share Tech Mono', fontSize: 9, color: 'var(--text-dim)', letterSpacing: 2 }}>
-              SECURE MONITORING
-            </div>
           </div>
         </div>
 
@@ -76,7 +87,24 @@ export default function AppLayout() {
             Monitoring
           </div>
 
-          {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+          {NAV_ITEMS.map(({ to, icon: Icon, label, external }) => {
+            if (external) {
+              return (
+                <a key={to} href={to} target="_blank" rel="noopener noreferrer" onClick={() => setMobileOpen(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 12px', borderRadius: 5, marginBottom: 2,
+                    textDecoration: 'none', fontSize: 13, fontWeight: 600,
+                    color: 'var(--text)',
+                    background: 'transparent',
+                    borderLeft: '3px solid transparent',
+                    transition: 'all 0.15s',
+                  }}>
+                  <Icon size={15} />{label}
+                </a>
+              );
+            }
+            return (
             <NavLink key={to} to={to} onClick={() => setMobileOpen(false)}
               style={({ isActive }) => ({
                 display: 'flex', alignItems: 'center', gap: 10,
@@ -89,7 +117,7 @@ export default function AppLayout() {
               })}>
               <Icon size={15} />{label}
             </NavLink>
-          ))}
+          )})}
 
           {isSuperAdmin && (
             <>
@@ -158,19 +186,20 @@ export default function AppLayout() {
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
 
         {/* Topbar */}
-        <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}>
             <Menu size={18} />
           </button>
-          <div style={{ fontFamily: 'Share Tech Mono', fontSize: 10, color: 'var(--text-dim)', letterSpacing: 2 }}>
-            ELECTION COMMISSION OF INDIA
-          </div>
           <div style={{ flex: 1 }} />
+          <div id="topbar-actions" style={{ display: 'flex', alignItems: 'center' }}></div>
+          <button onClick={toggleFullScreen} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }} title="Toggle Fullscreen">
+            <Maximize size={16} />
+          </button>
           <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', display: 'flex', alignItems: 'center' }}>
             <Bell size={16} />
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', borderRadius: 5, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 10px', borderRadius: 5, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
             <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,200,255,0.1)', border: '1px solid rgba(0,200,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', fontWeight: 700, fontSize: 11 }}>
               {user?.name?.[0]?.toUpperCase()}
             </div>

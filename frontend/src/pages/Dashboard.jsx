@@ -3,7 +3,8 @@
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Video, Filter, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { RefreshCw, Video, Filter, AlertCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Maximize } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { camerasApi, locationsApi } from '../api/services';
 import HLSPlayer from '../components/ui/HLSPlayer';
@@ -15,7 +16,7 @@ const STATUS_BADGE = {
   NOT_CONNECTED: 'badge-yellow',
 };
 
-export default function Dashboard() {
+export default function Dashboard({ isStandalone = false }) {
   const [cameras, setCameras]         = useState([]);
   const [states, setStates]           = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -33,7 +34,7 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter]         = useState('ALL');
   const [placementFilter, setPlacementFilter]   = useState('');
   const [streamIdFilter, setStreamIdFilter]     = useState('');
-  const [showControls, setShowControls]         = useState(true);
+  const [showControls, setShowControls]         = useState(!isStandalone);
   const [expandedCamera, setExpandedCamera]     = useState(null);
   const [page, setPage]               = useState(1);
   const [pagination, setPagination]   = useState(null);
@@ -152,16 +153,42 @@ export default function Dashboard() {
 
   useEffect(() => { fetchCameras(); }, [fetchCameras]);
 
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        toast.error(`Could not enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
   const activeCameras   = cameras.filter((c) => c.status === 'ACTIVE').length;
   const inactiveCameras = cameras.filter((c) => c.status !== 'ACTIVE').length;
 
   return (
-    <div className="fade-in" style={{ padding: 16, height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div className="fade-in" style={{ 
+      padding: (isStandalone || !showControls) ? 0 : 12, 
+      height: isStandalone ? '100vh' : '100%', 
+      minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative',
+      background: (isStandalone || !showControls) ? '#000' : 'transparent'
+    }}>
 
-      {!showControls && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 8 }}>
-          <button className="btn btn-sm" style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }} onClick={() => setShowControls(true)}>
-            <ChevronDown size={14} /> Show Controls
+      {!showControls && !isStandalone && document.getElementById('topbar-actions') && createPortal(
+        <button className="btn btn-sm" style={{ background: 'var(--surface2)', border: '1px solid var(--border)', marginRight: 12, display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', color: 'var(--text-bright)' }} onClick={() => setShowControls(true)}>
+          <ChevronDown size={14} /> <span style={{ fontSize: 11, fontWeight: 600 }}>SHOW CONTROLS</span>
+        </button>,
+        document.getElementById('topbar-actions')
+      )}
+      {!showControls && isStandalone && (
+        <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 100, display: 'flex', gap: 10 }}>
+          <button className="btn btn-sm" title="Toggle Fullscreen" style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 8px', borderRadius: 4, cursor: 'pointer' }} onClick={toggleFullScreen}>
+            <Maximize size={16} />
+          </button>
+          <button className="btn btn-sm" style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 4, cursor: 'pointer' }} onClick={() => setShowControls(true)}>
+            <ChevronDown size={14} /> <span style={{ fontSize: 11, fontWeight: 600 }}>CONTROLS</span>
           </button>
         </div>
       )}
@@ -169,17 +196,16 @@ export default function Dashboard() {
       {showControls && (
         <>
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <div>
-              <h2 style={{ fontFamily: 'Share Tech Mono', fontSize: 12, letterSpacing: 2, color: 'var(--text-dim)' }}>// LIVE SURVEILLANCE</h2>
-              <h1 style={{ fontFamily: 'Barlow Condensed', fontSize: 32, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1, textShadow: '0 0 20px rgba(255,255,255,0.2)' }}>
+              <h1 style={{ fontFamily: 'Barlow Condensed', fontSize: 24, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1, textShadow: '0 0 20px rgba(255,255,255,0.2)' }}>
                 Camera Dashboard
               </h1>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ padding: '0 12px', height: 30, display: 'flex', alignItems: 'center', border: '1px solid rgba(0,255,100,0.3)', background: 'rgba(0,255,100,0.1)', borderRadius: 5 }}>
-                <span className="badge badge-green">● Showing {cameras.length} of {pagination?.total || 0} Cameras</span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ padding: '0 10px', height: 26, display: 'flex', alignItems: 'center', border: '1px solid rgba(0,255,100,0.3)', background: 'rgba(0,255,100,0.1)', borderRadius: 5 }}>
+                <span className="badge badge-green" style={{ fontSize: 10 }}>● Showing {cameras.length} of {pagination?.total || 0} Cameras</span>
               </div>
 
               {/* Auto Rotate Toggle & Interval */}
@@ -187,7 +213,7 @@ export default function Dashboard() {
                 <button className="btn btn-sm" 
                   onClick={() => setAutoRotate(!autoRotate)}
                   style={{ 
-                    border: 'none', borderRadius: 0, padding: '0 10px', height: 30,
+                    border: 'none', borderRadius: 0, padding: '0 8px', height: 26, fontSize: 11,
                     background: autoRotate ? 'rgba(0,200,255,0.1)' : 'transparent',
                     color: autoRotate ? 'var(--accent)' : 'var(--text-dim)' 
                   }}>
@@ -195,22 +221,22 @@ export default function Dashboard() {
                 </button>
                 <select 
                   className="form-input" 
-                  style={{ width: 'auto', padding: '0 8px', fontSize: 12, height: 30, border: 'none', borderLeft: '1px solid var(--border)', borderRadius: 0, background: 'transparent' }}
+                  style={{ width: 'auto', padding: '0 6px', fontSize: 11, height: 26, border: 'none', borderLeft: '1px solid var(--border)', borderRadius: 0, background: 'transparent' }}
                   value={rotateInterval} 
                   onChange={(e) => setRotateInterval(Number(e.target.value))}
                   disabled={!autoRotate}
                 >
-                  <option value={10000}>10s</option>
-                  <option value={20000}>20s</option>
-                  <option value={30000}>30s</option>
-                  <option value={40000}>40s</option>
-                  <option value={50000}>50s</option>
-                  <option value={60000}>1m</option>
+                  <option value={10000} style={{ background: 'var(--surface)', color: 'var(--text)' }}>10s</option>
+                  <option value={20000} style={{ background: 'var(--surface)', color: 'var(--text)' }}>20s</option>
+                  <option value={30000} style={{ background: 'var(--surface)', color: 'var(--text)' }}>30s</option>
+                  <option value={40000} style={{ background: 'var(--surface)', color: 'var(--text)' }}>40s</option>
+                  <option value={50000} style={{ background: 'var(--surface)', color: 'var(--text)' }}>50s</option>
+                  <option value={60000} style={{ background: 'var(--surface)', color: 'var(--text)' }}>1m</option>
                 </select>
               </div>
 
               {/* Grid Layout Selector */}
-              <select className="form-input" style={{ width: 'auto', padding: '0 10px', fontSize: 12, height: 30 }}
+              <select className="form-input" style={{ width: 'auto', padding: '0 8px', fontSize: 11, height: 26 }}
                 value={gridLayout} onChange={(e) => { setGridLayout(e.target.value); setPage(1); }}>
                 <option value="1:1">1x1 Matrix</option>
                 <option value="1:2">1x2 Matrix</option>
@@ -223,25 +249,25 @@ export default function Dashboard() {
               </select>
 
               {/* AI Crowd Threshold */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px', height: 30, background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: 5 }}>
-                <span style={{ fontSize: 10, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>🚨 ALERT IF ></span>
-                <input type="number" className="form-input" style={{ width: 40, height: 20, padding: '0 4px', fontSize: 12, textAlign: 'center' }}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px', height: 26, background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: 5 }}>
+                <span style={{ fontSize: 9, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>🚨 ALERT IF ></span>
+                <input type="number" className="form-input" style={{ width: 34, height: 18, padding: '0 2px', fontSize: 11, textAlign: 'center' }}
                   value={crowdThreshold} onChange={(e) => setCrowdThreshold(Number(e.target.value))} />
-                <span style={{ fontSize: 10, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>PPL</span>
+                <span style={{ fontSize: 9, fontFamily: 'Share Tech Mono', color: 'var(--text-bright)' }}>PPL</span>
               </div>
 
-              <button className="btn btn-ghost btn-sm" onClick={() => fetchCameras(true)} disabled={refreshing}>
-                <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} /> REFRESH
+              <button className="btn btn-ghost btn-sm" style={{ height: 26, padding: '0 8px', fontSize: 11 }} onClick={() => fetchCameras(true)} disabled={refreshing}>
+                <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} /> REFRESH
               </button>
 
-              <button className="btn btn-ghost btn-sm" style={{ border: '1px solid var(--border)' }} onClick={() => setShowControls(false)} title="Hide Controls">
-                <ChevronUp size={14} /> HIDE
+              <button className="btn btn-ghost btn-sm" style={{ border: '1px solid var(--border)', height: 26, padding: '0 8px', fontSize: 11 }} onClick={() => setShowControls(false)} title="Hide Controls">
+                <ChevronUp size={12} /> HIDE
               </button>
             </div>
           </div>
 
           {/* Filters Bar */}
-          <div className="card p-3 mb-4" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="card mb-3" style={{ padding: '8px 12px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', marginRight: 8 }}>
               <Filter size={16} />
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, fontFamily: 'Share Tech Mono' }}>FILTER:</span>
@@ -383,15 +409,54 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Pagination */}
+      {/* Floating Pagination for all modes */}
       {pagination && pagination.totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 24, alignItems: 'center' }}>
-          <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>← Prev</button>
-          <span style={{ fontFamily: 'Share Tech Mono', fontSize: 11, color: 'var(--text-dim)' }}>
-            Page {pagination.page} of {pagination.totalPages} ({pagination.total} cameras)
-          </span>
-          <button className="btn btn-ghost btn-sm" disabled={page === pagination.totalPages} onClick={() => setPage((p) => p + 1)}>Next →</button>
-        </div>
+        <>
+          <button 
+            disabled={page === 1} 
+            onClick={() => setPage((p) => p - 1)}
+            style={{ 
+              position: 'absolute', bottom: 20, left: 20, zIndex: 100, 
+              width: 40, height: 40, borderRadius: '50%',
+              background: page === 1 ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.7)', 
+              color: page === 1 ? 'rgba(255,255,255,0.3)' : 'white', 
+              border: '1px solid rgba(255,255,255,0.2)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: page === 1 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+            }}>
+            <ChevronLeft size={24} />
+          </button>
+          
+          <div style={{
+            position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 100,
+            background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20,
+            padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 6,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+          }}>
+            <span style={{ fontFamily: 'Share Tech Mono', fontSize: 10, color: 'var(--text-dim)' }}>
+              PAGE {pagination.page} / {pagination.totalPages}
+            </span>
+          </div>
+
+          <button 
+            disabled={page === pagination.totalPages} 
+            onClick={() => setPage((p) => p + 1)}
+            style={{ 
+              position: 'absolute', bottom: 20, right: 20, zIndex: 100, 
+              width: 40, height: 40, borderRadius: '50%',
+              background: page === pagination.totalPages ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.7)', 
+              color: page === pagination.totalPages ? 'rgba(255,255,255,0.3)' : 'white', 
+              border: '1px solid rgba(255,255,255,0.2)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: page === pagination.totalPages ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+            }}>
+            <ChevronRight size={24} />
+          </button>
+        </>
       )}
     </div>
   );

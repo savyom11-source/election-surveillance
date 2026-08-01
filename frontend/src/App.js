@@ -12,6 +12,7 @@ import AppLayout         from './components/layout/AppLayout';
 import LoginPage         from './pages/auth/LoginPage';
 import Dashboard         from './pages/Dashboard';
 import StatsPage         from './pages/StatsPage';
+import CameraExportView  from './pages/CameraExportView';
 import LocationsPage     from './pages/LocationsPage';
 
 import AdminUsersPage    from './pages/admin/AdminUsersPage';
@@ -36,7 +37,7 @@ function ProtectedRoute({ children }) {
 
 function AdminRoute({ children }) {
   const { user } = useAuthStore();
-  return user?.role === 'SUPER_ADMIN' ? children : <Navigate to="/dashboard" replace />;
+  return user?.role === 'SUPER_ADMIN' ? children : <Navigate to="/stats" replace />;
 }
 
 export default function App() {
@@ -63,14 +64,20 @@ export default function App() {
         />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/grid" element={
+            <ProtectedRoute>
+              <Dashboard isStandalone={true} />
+            </ProtectedRoute>
+          } />
           <Route path="/" element={
             <ProtectedRoute>
               <AppLayout />
             </ProtectedRoute>
           }>
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<Navigate to="/stats" replace />} />
             <Route path="dashboard"         element={<Dashboard />} />
             <Route path="stats"             element={<StatsPage />} />
+            <Route path="camera-list"       element={<CameraExportView />} />
             <Route path="locations"         element={<LocationsPage />} />
 
             <Route path="admin/users"       element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
@@ -78,7 +85,7 @@ export default function App() {
             <Route path="admin/locations"   element={<AdminRoute><AdminLocationsPage /></AdminRoute>} />
             <Route path="admin/audit"       element={<AdminRoute><AdminAuditPage /></AdminRoute>} />
           </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/stats" replace />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

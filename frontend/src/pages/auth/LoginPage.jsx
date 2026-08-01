@@ -20,10 +20,20 @@ export default function LoginPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!email || !password) return;
+
+    // Enterprise Feature: Attempt to snap into full-screen automatically
+    // Because this happens synchronously inside a user's click event (submitting the form),
+    // modern browsers will allow the full-screen request!
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.log("Fullscreen request blocked by browser:", err);
+      });
+    }
+
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate('/stats');
     } catch (err) {
       toast.error(err?.response?.data?.error?.message || 'Login failed. Please try again.');
     } finally {

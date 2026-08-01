@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Download, Search, Play, X } from 'lucide-react';
+import { Download, Search, Play, X, List } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { camerasApi, locationsApi } from '../api/services';
 import * as XLSX from 'xlsx';
 import HLSPlayer from '../components/ui/HLSPlayer';
+import useAuthStore from '../store/authStore';
 
 function VideoModal({ camera, onClose }) {
   return (
@@ -27,6 +28,8 @@ function VideoModal({ camera, onClose }) {
 }
 
 export default function CameraExportView() {
+  const { user } = useAuthStore();
+
   const getStreamId = (hlsUrl) => {
     if (!hlsUrl) return 'N/A';
     try {
@@ -144,8 +147,18 @@ export default function CameraExportView() {
   }
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className="fade-in p-6" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+            <List className="text-blue-500" />
+            Camera List
+          </h1>
+          <p className="text-slate-400 mt-1">Detailed view and status of all configured cameras</p>
+        </div>
+      </div>
+
       {/* Filters Bar */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <select className="form-input" style={{ width: 'auto' }} value={selectedState} onChange={handleStateChange}>
@@ -175,9 +188,11 @@ export default function CameraExportView() {
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
           <input className="form-input" style={{ paddingLeft: 36 }} placeholder="Search camera or stream ID..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        <button className="btn btn-primary" onClick={handleExport} disabled={exporting || loading}>
-          <Download size={14} /> {exporting ? 'Exporting...' : 'Export .xlsx'}
-        </button>
+        {user?.role === 'SUPER_ADMIN' && (
+          <button className="btn btn-primary" onClick={handleExport} disabled={exporting || loading}>
+            <Download size={14} /> {exporting ? 'Exporting...' : 'Export .xlsx'}
+          </button>
+        )}
       </div>
 
       {/* Data Table */}

@@ -176,7 +176,7 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
       <video
         ref={videoRef}
         className="w-full h-full object-fill custom-video"
-        defaultMuted
+        muted={isMuted}
         playsInline
         controls={state === 'playing'}
         onVolumeChange={() => {

@@ -3,7 +3,6 @@ import { Camera, Radio, VideoOff, Activity, RefreshCw, BarChart2, FileSpreadshee
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
-import CameraExportView from './CameraExportView';
 
 function StatPill({ icon: Icon, value, label, colorClass, bgColorClass, borderColorClass }) {
   return (
@@ -55,7 +54,6 @@ function RegionCard({ region }) {
 export default function StatsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
   const { user } = useAuthStore();
 
   const fetchStats = async () => {
@@ -118,28 +116,7 @@ export default function StatsPage() {
         </button>
       </div>
 
-      {user?.role === 'SUPER_ADMIN' && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
-          <button 
-            className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-ghost'}`} 
-            onClick={() => setActiveTab('overview')}
-          >
-            <BarChart2 size={16} /> Status Overview
-          </button>
-          <button 
-            className={`btn ${activeTab === 'export' ? 'btn-primary' : 'btn-ghost'}`} 
-            onClick={() => setActiveTab('export')}
-          >
-            <FileSpreadsheet size={16} /> Camera Data Export
-          </button>
-        </div>
-      )}
-
-      {activeTab === 'export' && user?.role === 'SUPER_ADMIN' ? (
-        <CameraExportView />
-      ) : (
-        <>
-          {/* Overall Stats Pills */}
+      {/* Overall Stats Pills */}
       <div className="flex flex-wrap gap-4 mb-10">
         <StatPill 
           icon={Camera} 
@@ -217,7 +194,6 @@ export default function StatsPage() {
           })}
         </div>
       )}
-        </>
       )}
 
     </div>
