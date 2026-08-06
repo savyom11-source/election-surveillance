@@ -35,16 +35,16 @@ router.delete('/states/:id', requireRole('SUPER_ADMIN'), locationController.dele
 
 // ---- Districts ----
 router.get('/districts', locationController.getDistricts);
-router.post('/districts', requireRole('SUPER_ADMIN'), validate(createDistrictSchema), locationController.createDistrict);
+router.post('/districts', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(createDistrictSchema), locationController.createDistrict);
 router.get('/districts/:id', locationController.getDistrictById);
-router.patch('/districts/:id', requireRole('SUPER_ADMIN'), validate(updateDistrictSchema), locationController.updateDistrict);
-router.delete('/districts/:id', requireRole('SUPER_ADMIN'), locationController.deleteDistrict);
+router.patch('/districts/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(updateDistrictSchema), locationController.updateDistrict);
+router.delete('/districts/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), locationController.deleteDistrict);
 
 // ---- Offices ----
 router.get('/offices', locationController.getOffices);
-router.post('/offices', requireRole('SUPER_ADMIN'), validate(createOfficeSchema), locationController.createOffice);
+router.post('/offices', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(createOfficeSchema), locationController.createOffice);
 router.get('/offices/:id', locationController.getOfficeById);
-router.patch('/offices/:id', requireRole('SUPER_ADMIN'), validate(updateOfficeSchema), locationController.updateOffice);
-router.delete('/offices/:id', requireRole('SUPER_ADMIN'), locationController.deleteOffice);
+router.patch('/offices/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(updateOfficeSchema), locationController.updateOffice);
+router.delete('/offices/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), locationController.deleteOffice);
 
 module.exports = router;

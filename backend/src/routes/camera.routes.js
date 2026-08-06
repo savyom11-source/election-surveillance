@@ -27,9 +27,9 @@ router.get('/',    getCameras);
 router.get('/:id', getCameraById);
 router.get('/:id/stream', getStreamUrl);
 
-// Write routes — Super Admin only
-router.post('/',    requireRole('SUPER_ADMIN'), validate(createCameraSchema), createCamera);
-router.patch('/:id', requireRole('SUPER_ADMIN'), validate(updateCameraSchema), updateCamera);
-router.delete('/:id', requireRole('SUPER_ADMIN'), deleteCamera);
+// Write routes — Super Admin & State Admin
+router.post('/',    requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(createCameraSchema), createCamera);
+router.patch('/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(updateCameraSchema), updateCamera);
+router.delete('/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), deleteCamera);
 
 module.exports = router;

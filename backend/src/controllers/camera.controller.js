@@ -179,8 +179,14 @@ const createCamera = asyncHandler(async (req, res) => {
   const { name, description, streamUrl, streamType, status, officeId } = req.body;
 
   // Validate office exists
-  const office = await prisma.office.findUnique({ where: { id: officeId } });
+  const office = await prisma.office.findUnique({ where: { id: officeId }, include: { district: true } });
   if (!office) throw new ValidationError('officeId does not reference an existing office');
+
+  if (!req.scope.isSuperAdmin) {
+    if (!req.scope.stateIds.includes(office.district.stateId)) {
+      throw new ForbiddenError('You can only create cameras within your assigned state');
+    }
+  }
 
   // Validate stream URL
   const validation = validateStreamUrl(streamUrl);
@@ -221,10 +227,17 @@ const updateCamera = asyncHandler(async (req, res) => {
 
   const existing = await prisma.camera.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('Camera not found');
+  
+  const hasAccess = await checkCameraAccess(req, id);
+  if (!hasAccess) throw new ForbiddenError('Access denied to modify this camera');
 
   if (officeId) {
-    const office = await prisma.office.findUnique({ where: { id: officeId } });
+    const office = await prisma.office.findUnique({ where: { id: officeId }, include: { district: true } });
     if (!office) throw new ValidationError('officeId does not reference an existing office');
+    
+    if (!req.scope.isSuperAdmin && !req.scope.stateIds.includes(office.district.stateId)) {
+      throw new ForbiddenError('You can only assign cameras to offices within your assigned state');
+    }
   }
 
   // Validate new stream URL if provided
@@ -269,6 +282,9 @@ const deleteCamera = asyncHandler(async (req, res) => {
 
   const existing = await prisma.camera.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('Camera not found');
+  
+  const hasAccess = await checkCameraAccess(req, id);
+  if (!hasAccess) throw new ForbiddenError('Access denied to delete this camera');
 
   await prisma.camera.update({
     where: { id },

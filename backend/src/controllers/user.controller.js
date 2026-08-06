@@ -11,6 +11,7 @@ const {
   asyncHandler,
 } = require('../utils/errors');
 const { logAudit } = require('../services/audit.service');
+const { ForbiddenError } = require('../utils/errors');
 
 // ----------------------------------------------------------
 // Shared select shape — never expose passwordHash
@@ -100,6 +101,62 @@ function scopeToCreateData(scope, userId, role) {
   return rows;
 }
 
+async function validateScopeSubservience(req, targetRole, targetScope) {
+  if (req.scope.isSuperAdmin) return;
+  if (targetRole === 'SUPER_ADMIN') throw new ForbiddenError('You cannot create or manage Super Admins');
+
+  const { stateIds = [], districtIds = [], officeIds = [] } = targetScope || {};
+
+  for (const sid of stateIds) {
+    if (!req.scope.stateIds.includes(sid)) {
+      throw new ForbiddenError(`You do not have access to assign state ID ${sid}`);
+    }
+  }
+
+  if (districtIds.length) {
+    const districts = await prisma.district.findMany({ where: { id: { in: districtIds } } });
+    for (const d of districts) {
+      if (!req.scope.stateIds.includes(d.stateId)) {
+         throw new ForbiddenError(`You do not have access to assign district ID ${d.id}`);
+      }
+    }
+  }
+
+  if (officeIds.length) {
+    const offices = await prisma.office.findMany({ where: { id: { in: officeIds } }, include: { district: true } });
+    for (const o of offices) {
+      if (!req.scope.stateIds.includes(o.district.stateId)) {
+         throw new ForbiddenError(`You do not have access to assign office ID ${o.id}`);
+      }
+    }
+  }
+}
+
+async function checkUserAccess(req, targetUserId) {
+  if (req.scope.isSuperAdmin) return true;
+  
+  const target = await prisma.user.findUnique({ where: { id: targetUserId } });
+  if (!target) return false;
+  if (target.role === 'SUPER_ADMIN') return false; // Cannot touch Super Admins
+
+  const scopes = await prisma.userScope.findMany({
+    where: { userId: targetUserId },
+    include: {
+      district: true,
+      office: { include: { district: true } }
+    }
+  });
+
+  if (scopes.length === 0) return false;
+
+  for (const s of scopes) {
+    if (s.stateId && !req.scope.stateIds.includes(s.stateId)) return false;
+    if (s.districtId && !req.scope.stateIds.includes(s.district.stateId)) return false;
+    if (s.officeId && !req.scope.stateIds.includes(s.office.district.stateId)) return false;
+  }
+  return true;
+}
+
 // ----------------------------------------------------------
 // POST /api/users — create user (Super Admin only)
 // ----------------------------------------------------------
@@ -111,6 +168,9 @@ const createUser = asyncHandler(async (req, res) => {
 
   if (role !== 'SUPER_ADMIN') {
     await validateScopeIdsExist(scope);
+    await validateScopeSubservience(req, role, scope);
+  } else if (!req.scope.isSuperAdmin) {
+    throw new ForbiddenError('You cannot create Super Admins');
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -177,6 +237,19 @@ const getUsers = asyncHandler(async (req, res) => {
     ];
   }
 
+  if (!req.scope.isSuperAdmin) {
+    // Only see users in the same state
+    where.userScopes = {
+      some: {
+        OR: [
+          { stateId: { in: req.scope.stateIds } },
+          { district: { stateId: { in: req.scope.stateIds } } },
+          { office: { district: { stateId: { in: req.scope.stateIds } } } }
+        ]
+      }
+    };
+  }
+
   const [users, total] = await Promise.all([
     prisma.user.findMany({
       where,
@@ -210,6 +283,7 @@ const getUserById = asyncHandler(async (req, res) => {
   });
 
   if (!user) throw new NotFoundError('User not found');
+  if (!(await checkUserAccess(req, req.params.id))) throw new ForbiddenError('Access denied');
 
   res.json({ success: true, data: user });
 });
@@ -224,6 +298,7 @@ const updateUser = asyncHandler(async (req, res) => {
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) throw new NotFoundError('User not found');
+  if (!(await checkUserAccess(req, id))) throw new ForbiddenError('Access denied');
 
   // Safety: prevent the acting Super Admin from demoting themselves
   if (id === req.user.userId && role && role !== 'SUPER_ADMIN') {
@@ -239,6 +314,7 @@ const updateUser = asyncHandler(async (req, res) => {
 
   if (scope && effectiveRole !== 'SUPER_ADMIN') {
     await validateScopeIdsExist(scope);
+    await validateScopeSubservience(req, effectiveRole, scope);
   }
 
   await prisma.$transaction(async (tx) => {
@@ -288,6 +364,7 @@ const deactivateUser = asyncHandler(async (req, res) => {
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) throw new NotFoundError('User not found');
+  if (!(await checkUserAccess(req, id))) throw new ForbiddenError('Access denied');
 
   if (!target.isActive) {
     return res.json({ success: true, data: { message: 'User is already inactive' } });
@@ -316,6 +393,7 @@ const activateUser = asyncHandler(async (req, res) => {
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) throw new NotFoundError('User not found');
+  if (!(await checkUserAccess(req, id))) throw new ForbiddenError('Access denied');
 
   if (target.isActive) {
     return res.json({ success: true, data: { message: 'User is already active' } });
@@ -342,6 +420,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) throw new NotFoundError('User not found');
+  if (!(await checkUserAccess(req, id))) throw new ForbiddenError('Access denied');
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
 
@@ -375,6 +454,7 @@ const deleteUser = asyncHandler(async (req, res) => {
 
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('User not found');
+  if (!(await checkUserAccess(req, id))) throw new ForbiddenError('Access denied');
 
   await prisma.$transaction([
     // Unlink any users created by this user

@@ -8,7 +8,7 @@ const router = express.Router();
 
 const userController = require('../controllers/user.controller');
 const { authenticate } = require('../middleware/authenticate');
-const { requireRole } = require('../middleware/rbac');
+const { requireRole, loadUserScope } = require('../middleware/rbac');
 const {
   validate,
   createUserSchema,
@@ -16,8 +16,8 @@ const {
   resetPasswordSchema,
 } = require('../validators/user.validator');
 
-// Gate the entire router — only Super Admins manage users
-router.use(authenticate, requireRole('SUPER_ADMIN'));
+// Gate the entire router — Super and State Admins manage users
+router.use(authenticate, loadUserScope, requireRole('SUPER_ADMIN', 'STATE_ADMIN'));
 
 router.get('/', userController.getUsers);
 router.post('/', validate(createUserSchema), userController.createUser);

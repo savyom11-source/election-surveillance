@@ -20,6 +20,7 @@ const {
   buildDistrictScopeFilter,
   buildOfficeScopeFilter,
 } = require('../middleware/rbac');
+const { ForbiddenError } = require('../utils/errors');
 
 function activeFilter(req) {
   return req.query.includeInactive === 'true' ? {} : { isActive: true };
@@ -239,6 +240,10 @@ const createDistrict = asyncHandler(async (req, res) => {
   const state = await prisma.state.findUnique({ where: { id: stateId } });
   if (!state) throw new ValidationError('stateId does not reference an existing state');
 
+  if (!req.scope.isSuperAdmin && !req.scope.stateIds.includes(stateId)) {
+    throw new ForbiddenError('You can only create districts within your assigned state');
+  }
+
   const existing = await prisma.district.findFirst({ where: { stateId, code } });
   if (existing) throw new ConflictError(`A district with code "${code}" already exists in this state`);
 
@@ -258,12 +263,15 @@ const updateDistrict = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, code, stateId, isActive } = req.body;
 
-  const existing = await prisma.district.findUnique({ where: { id } });
-  if (!existing) throw new NotFoundError('District not found');
+  const existing = await prisma.district.findFirst({ where: { id, ...buildDistrictScopeFilter(req.scope) } });
+  if (!existing) throw new NotFoundError('District not found or access denied');
 
   if (stateId) {
     const state = await prisma.state.findUnique({ where: { id: stateId } });
     if (!state) throw new ValidationError('stateId does not reference an existing state');
+    if (!req.scope.isSuperAdmin && !req.scope.stateIds.includes(stateId)) {
+      throw new ForbiddenError('You can only assign districts to your assigned state');
+    }
   }
 
   // ---- CASCADE REACTIVATE ----
@@ -325,8 +333,8 @@ const updateDistrict = asyncHandler(async (req, res) => {
 const deleteDistrict = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const existing = await prisma.district.findUnique({ where: { id } });
-  if (!existing) throw new NotFoundError('District not found');
+  const existing = await prisma.district.findFirst({ where: { id, ...buildDistrictScopeFilter(req.scope) } });
+  if (!existing) throw new NotFoundError('District not found or access denied');
 
   const offices = await prisma.office.findMany({ where: { districtId: id }, select: { id: true } });
   const officeIds = offices.map((o) => o.id);
@@ -411,6 +419,11 @@ const createOffice = asyncHandler(async (req, res) => {
   const district = await prisma.district.findUnique({ where: { id: districtId } });
   if (!district) throw new ValidationError('districtId does not reference an existing district');
 
+  if (!req.scope.isSuperAdmin) {
+    const hasAccess = await prisma.district.findFirst({ where: { id: districtId, ...buildDistrictScopeFilter(req.scope) } });
+    if (!hasAccess) throw new ForbiddenError('You can only create offices within your assigned scope');
+  }
+
   const office = await prisma.office.create({ data: { name, address, districtId } });
 
   await logAudit({
@@ -427,12 +440,16 @@ const updateOffice = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, address, districtId, isActive } = req.body;
 
-  const existing = await prisma.office.findUnique({ where: { id } });
-  if (!existing) throw new NotFoundError('Office not found');
+  const existing = await prisma.office.findFirst({ where: { id, ...buildOfficeScopeFilter(req.scope) } });
+  if (!existing) throw new NotFoundError('Office not found or access denied');
 
   if (districtId) {
     const district = await prisma.district.findUnique({ where: { id: districtId } });
     if (!district) throw new ValidationError('districtId does not reference an existing district');
+    if (!req.scope.isSuperAdmin) {
+      const hasAccess = await prisma.district.findFirst({ where: { id: districtId, ...buildDistrictScopeFilter(req.scope) } });
+      if (!hasAccess) throw new ForbiddenError('You can only assign offices to your assigned scope');
+    }
   }
 
   // ---- CASCADE REACTIVATE ----
@@ -480,8 +497,8 @@ const updateOffice = asyncHandler(async (req, res) => {
 const deleteOffice = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const existing = await prisma.office.findUnique({ where: { id } });
-  if (!existing) throw new NotFoundError('Office not found');
+  const existing = await prisma.office.findFirst({ where: { id, ...buildOfficeScopeFilter(req.scope) } });
+  if (!existing) throw new NotFoundError('Office not found or access denied');
 
   const cameras = await prisma.camera.findMany({ where: { officeId: id }, select: { id: true } });
   const cameraIds = cameras.map((c) => c.id);
