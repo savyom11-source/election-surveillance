@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Users, Plus, Search, Shield, CheckCircle, XCircle, RefreshCw, KeyRound, X, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usersApi, locationsApi } from '../../api/services';
+import useAuthStore from '../../store/authStore';
 
 const ROLE_INFO = {
   SUPER_ADMIN:       { label: 'Super Admin',       badge: 'badge-yellow' },
@@ -35,6 +36,8 @@ function CreateUserModal({ onClose, onCreated }) {
   const [states, setStates] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [offices, setOffices] = useState([]);
+  const { user } = useAuthStore();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   useEffect(() => { locationsApi.getStates().then((r) => setStates(r.data.data)).catch(() => {}); }, []);
 
@@ -88,7 +91,10 @@ function CreateUserModal({ onClose, onCreated }) {
       <div className="form-group">
         <label className="form-label">Role</label>
         <select className="form-input" value={form.role} onChange={(e) => set('role', e.target.value)}>
-          {Object.entries(ROLE_INFO).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          {Object.entries(ROLE_INFO).map(([k, v]) => {
+            if (!isSuperAdmin && (k === 'SUPER_ADMIN' || k === 'STATE_ADMIN')) return null;
+            return <option key={k} value={k}>{v.label}</option>;
+          })}
         </select>
       </div>
 

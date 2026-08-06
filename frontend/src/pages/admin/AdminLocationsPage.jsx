@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Plus, Edit2, Trash2, X, Building2, Map, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { locationsApi } from '../../api/services';
+import useAuthStore from '../../store/authStore';
 
 function Modal({ title, onClose, children }) {
   return (
@@ -116,6 +117,8 @@ export default function AdminLocationsPage() {
   const [saving, setSaving]   = useState(false);
   const [actioning, setActioning] = useState(null);
   const [modal, setModal]     = useState(null);
+  const { user } = useAuthStore();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -262,9 +265,11 @@ export default function AdminLocationsPage() {
           <div style={{ fontFamily: 'Share Tech Mono', fontSize: 11, color: 'var(--text-dim)', letterSpacing: 3, marginBottom: 4 }}>// ADMIN PANEL</div>
           <h1 style={{ fontFamily: 'Barlow Condensed', fontWeight: 900, fontSize: 28, color: 'var(--text-bright)', textTransform: 'uppercase' }}>Location Management</h1>
         </div>
-        <button className="btn btn-primary" onClick={() => setModal({ type: tab, data: null })}>
-          <Plus size={14} /> Add {tab === 'states' ? 'State' : tab === 'districts' ? 'District' : 'Office'}
-        </button>
+        {!(tab === 'states' && !isSuperAdmin) && (
+          <button className="btn btn-primary" onClick={() => setModal({ type: tab, data: null })}>
+            <Plus size={14} /> Add {tab === 'states' ? 'State' : tab === 'districts' ? 'District' : 'Office'}
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -289,14 +294,14 @@ export default function AdminLocationsPage() {
           <div className="table-wrap">
             <table>
               {tab === 'states' && <>
-                <thead><tr><th>Name</th><th>Code</th><th>Districts</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Code</th><th>Districts</th>{isSuperAdmin && <th>Actions</th>}</tr></thead>
                 <tbody>
                   {states.map((s) => (
                     <tr key={s.id}>
                       <td style={{ fontWeight: 600, color: 'var(--text-bright)' }}>{s.name}</td>
                       <td><span className="badge badge-blue">{s.code}</span></td>
                       <td style={{ color: 'var(--text-dim)' }}>{s._count?.districts || 0}</td>
-                      <td><ActionButtons item={s} onDelete={handleDeleteState} onEdit={(item) => setModal({ type: 'states', data: item })} /></td>
+                      {isSuperAdmin && <td><ActionButtons item={s} onDelete={handleDeleteState} onEdit={(item) => setModal({ type: 'states', data: item })} /></td>}
                     </tr>
                   ))}
                 </tbody>

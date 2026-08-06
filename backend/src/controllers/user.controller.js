@@ -103,7 +103,9 @@ function scopeToCreateData(scope, userId, role) {
 
 async function validateScopeSubservience(req, targetRole, targetScope) {
   if (req.scope.isSuperAdmin) return;
-  if (targetRole === 'SUPER_ADMIN') throw new ForbiddenError('You cannot create or manage Super Admins');
+  if (targetRole === 'SUPER_ADMIN' || targetRole === 'STATE_ADMIN') {
+    throw new ForbiddenError('You cannot create or assign Super Admin or State Admin roles');
+  }
 
   const { stateIds = [], districtIds = [], officeIds = [] } = targetScope || {};
 
@@ -170,7 +172,7 @@ const createUser = asyncHandler(async (req, res) => {
     await validateScopeIdsExist(scope);
     await validateScopeSubservience(req, role, scope);
   } else if (!req.scope.isSuperAdmin) {
-    throw new ForbiddenError('You cannot create Super Admins');
+    throw new ForbiddenError('You cannot create Super Admins or State Admins');
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
