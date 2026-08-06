@@ -39,7 +39,8 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'STATE_ADMIN';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isAdmin = isSuperAdmin || user?.role === 'STATE_ADMIN';
   const roleInfo = ROLE_LABELS[user?.role] || ROLE_LABELS.OFFICE_OBSERVER;
 
   async function handleLogout() {

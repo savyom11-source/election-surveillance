@@ -49,8 +49,8 @@ export default function AdminAuditPage() {
       setLogs(res.data.data);
       setPagination(res.data.pagination);
       setPage(p);
-    } catch {
-      toast.error('Failed to load audit logs');
+    } catch (error) {
+      toast.error(error.response?.data?.error?.message || 'Failed to load audit logs');
     } finally {
       setLoading(false);
     }

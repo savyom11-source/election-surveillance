@@ -30,6 +30,21 @@ const getAuditLogs = asyncHandler(async (req, res) => {
     };
   }
 
+  if (!req.scope.isSuperAdmin) {
+    where.user = {
+      ...where.user,
+      userScopes: {
+        some: {
+          OR: [
+            { stateId: { in: req.scope.stateIds } },
+            { district: { stateId: { in: req.scope.stateIds } } },
+            { office: { district: { stateId: { in: req.scope.stateIds } } } }
+          ]
+        }
+      }
+    };
+  }
+
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
       where,

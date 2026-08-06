@@ -35,9 +35,11 @@ function ProtectedRoute({ children }) {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
-function AdminRoute({ children }) {
+function AdminRoute({ children, superAdminOnly }) {
   const { user } = useAuthStore();
-  return user?.role === 'SUPER_ADMIN' ? children : <Navigate to="/stats" replace />;
+  if (superAdminOnly && user?.role !== 'SUPER_ADMIN') return <Navigate to="/stats" replace />;
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'STATE_ADMIN';
+  return isAdmin ? children : <Navigate to="/stats" replace />;
 }
 
 export default function App() {
