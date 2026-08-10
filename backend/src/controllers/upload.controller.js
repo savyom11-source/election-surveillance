@@ -68,7 +68,7 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
       const cloudId      = getVal(['cloud']);
       const inOut        = getVal(['in/out', 'placement']);
       const protocolStr  = getVal(['rtmp', 'rtsp', 'protocol']);
-      const streamId     = getVal(['rtmp', 'id', 'stream']);
+      const streamId     = getVal(['stream id', 'rtmp', 'rtsp']);
       let cameraName     = getVal(['camera name', 'name']);
 
       if (!stateName || !districtName || !officeName || !streamId) {

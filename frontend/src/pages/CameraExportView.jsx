@@ -142,7 +142,7 @@ export default function CameraExportView() {
         'Cloud ID': cam.cloudId || 'N/A',
         'IN/OUT': cam.placement === 'INSIDE' ? 'In' : cam.placement === 'OUTSIDE' ? 'Out' : 'N/A',
         'Protocol': cam.streamType || 'N/A',
-        'RTMP': cam.streamUrl || 'N/A',
+        'RTMP': getStreamId(cam.hlsUrl),
         'Status': cam.status
       }));
 
