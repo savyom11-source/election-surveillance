@@ -61,20 +61,24 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
 
       const stateName    = getVal(['state']);
       const districtName = getVal(['district']);
-      const officeName   = getVal(['polling', 'assembly', 'office']);
+      const officeName   = getVal(['polling', 'assembly', 'office', 'building']);
+      const prbhNo       = getVal(['prbh']);
+      const boothNumber  = getVal(['booth']);
+      const serialNo     = getVal(['serial']);
+      const cloudId      = getVal(['cloud']);
       const inOut        = getVal(['in/out', 'placement']);
       const protocolStr  = getVal(['rtmp', 'rtsp', 'protocol']);
-      const streamId     = getVal(['id', 'stream']);
+      const streamId     = getVal(['rtmp', 'id', 'stream']);
       let cameraName     = getVal(['camera name', 'name']);
 
       if (!stateName || !districtName || !officeName || !streamId) {
-        errors.push(`Row ${rowNum}: Missing required fields (State, District, Assembly, or ID)`);
+        errors.push(`Row ${rowNum}: Missing required fields (State, District, Assembly, or RTMP)`);
         continue;
       }
 
       // Default camera name if not provided
       if (!cameraName) {
-        cameraName = `${officeName} - ${inOut || 'Main'} Camera`;
+        cameraName = cloudId || serialNo || `${officeName} - ${inOut || 'Main'} Camera`;
       }
 
       // Upsert State
@@ -144,7 +148,11 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
           streamType,
           placement: placementVal,
           officeId: office.id,
-          status: 'NOT_CONNECTED'
+          status: 'NOT_CONNECTED',
+          prbhNo,
+          boothNumber,
+          serialNo,
+          cloudId
         }
       });
 

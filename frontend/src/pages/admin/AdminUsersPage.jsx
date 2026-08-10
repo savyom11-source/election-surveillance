@@ -70,7 +70,13 @@ function CreateUserModal({ onClose, onCreated }) {
       onCreated();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.error?.message || 'Failed to create user');
+      const errorData = err.response?.data?.error;
+      if (errorData?.details) {
+        const msgs = Object.values(errorData.details).flat().join(' | ');
+        toast.error(`Validation Error: ${msgs}`);
+      } else {
+        toast.error(errorData?.message || 'Failed to create user');
+      }
     } finally { setLoading(false); }
   }
 

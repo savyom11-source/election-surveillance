@@ -37,6 +37,7 @@ const cameraSelect = {
   id: true, name: true, description: true,
   streamUrl: true, streamType: true,
   status: true, isActive: true, placement: true,
+  prbhNo: true, boothNumber: true, serialNo: true, cloudId: true,
   createdAt: true, updatedAt: true, officeId: true,
   office: {
     select: {
@@ -57,7 +58,7 @@ const cameraSelect = {
 const getCameras = asyncHandler(async (req, res) => {
   const page   = Math.max(parseInt(req.query.page)  || 1, 1);
   const limit  = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
-  const { status, officeId, districtId, stateId, isActive, placement, streamId } = req.query;
+  const { status, officeId, districtId, stateId, isActive, placement, streamId, prbhNo, boothNumber } = req.query;
 
   const validStatuses = ['ACTIVE', 'INACTIVE', 'NOT_CONNECTED'];
   const isValidStatus = status && validStatuses.includes(status.toUpperCase());
@@ -71,6 +72,8 @@ const getCameras = asyncHandler(async (req, res) => {
     ...(districtId && { office: { districtId } }),
     ...(stateId    && { office: { district: { stateId } } }),
     ...(streamId   && { streamUrl: { contains: streamId, mode: 'insensitive' } }),
+    ...(prbhNo     && { prbhNo: { contains: prbhNo, mode: 'insensitive' } }),
+    ...(boothNumber&& { boothNumber: { contains: boothNumber, mode: 'insensitive' } }),
   };
 
   const allCameras = await prisma.camera.findMany({
@@ -176,7 +179,7 @@ const getStreamUrl = asyncHandler(async (req, res) => {
 // POST /api/cameras — create camera
 // ============================================================
 const createCamera = asyncHandler(async (req, res) => {
-  const { name, description, streamUrl, streamType, status, officeId } = req.body;
+  const { name, description, streamUrl, streamType, status, officeId, prbhNo, boothNumber, serialNo, cloudId } = req.body;
 
   // Validate office exists
   const office = await prisma.office.findUnique({ where: { id: officeId }, include: { district: true } });
@@ -203,6 +206,10 @@ const createCamera = asyncHandler(async (req, res) => {
       streamType: resolvedType,
       status: status || 'ACTIVE',
       officeId,
+      prbhNo,
+      boothNumber,
+      serialNo,
+      cloudId,
     },
     select: cameraSelect,
   });
@@ -223,7 +230,7 @@ const createCamera = asyncHandler(async (req, res) => {
 // ============================================================
 const updateCamera = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, description, streamUrl, streamType, status, officeId, isActive } = req.body;
+  const { name, description, streamUrl, streamType, status, officeId, isActive, prbhNo, boothNumber, serialNo, cloudId } = req.body;
 
   const existing = await prisma.camera.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('Camera not found');
@@ -259,6 +266,10 @@ const updateCamera = asyncHandler(async (req, res) => {
       ...(status            !== undefined && { status }),
       ...(officeId          !== undefined && { officeId }),
       ...(isActive          !== undefined && { isActive }),
+      ...(prbhNo            !== undefined && { prbhNo }),
+      ...(boothNumber       !== undefined && { boothNumber }),
+      ...(serialNo          !== undefined && { serialNo }),
+      ...(cloudId           !== undefined && { cloudId }),
     },
     select: cameraSelect,
   });

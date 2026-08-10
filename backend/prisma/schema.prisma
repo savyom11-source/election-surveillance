@@ -103,6 +103,10 @@ model Camera {
   streamType  StreamType       @default(RTMP)
   status      StreamStatus     @default(NOT_CONNECTED)
   placement   CameraPlacement?
+  prbhNo      String?
+  boothNumber String?
+  serialNo    String?
+  cloudId     String?
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt

@@ -18,6 +18,10 @@ const createCameraSchema = z.object({
   streamType:  z.enum(STREAM_TYPES).default('RTMP'),
   status:      z.enum(STREAM_STATUSES).optional(),
   officeId:    z.string().min(1, 'Office ID is required'),
+  prbhNo:      z.string().optional(),
+  boothNumber: z.string().optional(),
+  serialNo:    z.string().optional(),
+  cloudId:     z.string().optional(),
 }).superRefine((data, ctx) => {
   if (!validateStreamUrl(data.streamUrl, data.streamType)) {
     ctx.addIssue({
@@ -36,6 +40,10 @@ const updateCameraSchema = z.object({
   status:      z.enum(STREAM_STATUSES).optional(),
   officeId:    z.string().min(1).optional(),
   isActive:    z.boolean().optional(),
+  prbhNo:      z.string().optional(),
+  boothNumber: z.string().optional(),
+  serialNo:    z.string().optional(),
+  cloudId:     z.string().optional(),
 }).superRefine((data, ctx) => {
   if (data.streamUrl && data.streamType) {
     if (!validateStreamUrl(data.streamUrl, data.streamType)) {

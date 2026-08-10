@@ -51,6 +51,8 @@ export default function CameraExportView() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [placementFilter, setPlacementFilter] = useState('');
+  const [prbhFilter, setPrbhFilter] = useState('');
+  const [boothFilter, setBoothFilter] = useState('');
   const [selectedState, setSelectedState] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [selectedOffice, setSelectedOffice] = useState('');
@@ -72,6 +74,8 @@ export default function CameraExportView() {
       if (selectedState) params.stateId = selectedState;
       if (selectedDistrict) params.districtId = selectedDistrict;
       if (selectedOffice) params.officeId = selectedOffice;
+      if (prbhFilter) params.prbhNo = prbhFilter;
+      if (boothFilter) params.boothNumber = boothFilter;
 
       const res = await camerasApi.list(params);
       setCameras(res.data.data);
@@ -81,7 +85,7 @@ export default function CameraExportView() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, placementFilter, selectedState, selectedDistrict, selectedOffice]);
+  }, [page, search, statusFilter, placementFilter, selectedState, selectedDistrict, selectedOffice, prbhFilter, boothFilter]);
 
   useEffect(() => {
     fetchCameras();
@@ -116,6 +120,8 @@ export default function CameraExportView() {
       if (selectedState) params.stateId = selectedState;
       if (selectedDistrict) params.districtId = selectedDistrict;
       if (selectedOffice) params.officeId = selectedOffice;
+      if (prbhFilter) params.prbhNo = prbhFilter;
+      if (boothFilter) params.boothNumber = boothFilter;
 
       const res = await camerasApi.list(params);
       const allData = res.data.data;
@@ -127,9 +133,16 @@ export default function CameraExportView() {
 
       // Format strictly exactly as requested
       const excelData = allData.map(cam => ({
-        'Assembly Name': cam.office?.name || 'N/A',
-        'IN/OUT': cam.placement === 'INSIDE' ? 'IN' : cam.placement === 'OUTSIDE' ? 'OUT' : 'N/A',
-        'Stream ID': getStreamId(cam.hlsUrl),
+        'State': cam.office?.district?.state?.name || 'N/A',
+        'District': cam.office?.district?.name || 'N/A',
+        'PRBH NO': cam.prbhNo || 'N/A',
+        'Booth Number': cam.boothNumber || 'N/A',
+        'Polling Station (P.S.) BUILDING_NAME_AND_ADDRESS': cam.office?.name || 'N/A',
+        'Serial No': cam.serialNo || 'N/A',
+        'Cloud ID': cam.cloudId || 'N/A',
+        'IN/OUT': cam.placement === 'INSIDE' ? 'In' : cam.placement === 'OUTSIDE' ? 'Out' : 'N/A',
+        'Protocol': cam.streamType || 'N/A',
+        'RTMP': cam.streamUrl || 'N/A',
         'Status': cam.status
       }));
 
@@ -184,6 +197,14 @@ export default function CameraExportView() {
           <option value="INACTIVE">Inactive</option>
           <option value="NOT_CONNECTED">Not Connected</option>
         </select>
+        <div style={{ position: 'relative', flex: 1, minWidth: 120 }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+          <input className="form-input" style={{ paddingLeft: 36 }} placeholder="PRBH No..." value={prbhFilter} onChange={(e) => { setPrbhFilter(e.target.value); setPage(1); }} />
+        </div>
+        <div style={{ position: 'relative', flex: 1, minWidth: 120 }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+          <input className="form-input" style={{ paddingLeft: 36 }} placeholder="Booth No..." value={boothFilter} onChange={(e) => { setBoothFilter(e.target.value); setPage(1); }} />
+        </div>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
           <input className="form-input" style={{ paddingLeft: 36 }} placeholder="Search camera or stream ID..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
