@@ -88,12 +88,12 @@ export default function StatsPage() {
 
   const { overall, states } = data;
 
-  // Calculate total number of offices to determine if we should show the breakdown
-  const totalOffices = states.reduce((sum, state) => 
-    sum + state.districts.reduce((dSum, dist) => dSum + dist.offices.length, 0)
+  // Calculate total number of assemblies to determine if we should show the breakdown
+  const totalAssemblies = states.reduce((sum, state) => 
+    sum + state.districts.reduce((dSum, dist) => dSum + dist.assemblies.length, 0)
   , 0);
 
-  const showBreakdown = totalOffices > 1;
+  const showBreakdown = totalAssemblies > 0;
 
   return (
     <div className="p-6 flex flex-col">
@@ -180,9 +180,19 @@ export default function StatsPage() {
                           </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {district.offices.map(office => (
-                            <RegionCard key={office.id} region={office} />
+                        <div className="flex flex-col gap-6 mt-4 pl-4">
+                          {district.assemblies.map(assembly => (
+                            <div key={assembly.id} className="border-l-2 border-dark-600 pl-6">
+                              <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-md font-semibold text-slate-300 uppercase tracking-wide">{assembly.name} Assembly</h4>
+                                <MiniStats stats={assembly.stats} />
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {assembly.offices.map(office => (
+                                  <RegionCard key={office.id} region={office} />
+                                ))}
+                              </div>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -193,7 +203,6 @@ export default function StatsPage() {
             );
           })}
         </div>
-      )}
       )}
 
     </div>

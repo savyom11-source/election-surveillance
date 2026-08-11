@@ -41,6 +41,13 @@ export const locationsApi = {
   updateDistrict: (id, data)      => api.patch(`/locations/districts/${id}`, data),
   deleteDistrict: (id)            => api.delete(`/locations/districts/${id}`),
 
+  // Assemblies
+  getAssemblies:   (params)        => api.get('/locations/assemblies', { params }),
+  getAssembly:    (id)            => api.get(`/locations/assemblies/${id}`),
+  createAssembly: (data)          => api.post('/locations/assemblies', data),
+  updateAssembly: (id, data)      => api.patch(`/locations/assemblies/${id}`, data),
+  deleteAssembly: (id)            => api.delete(`/locations/assemblies/${id}`),
+
   // Offices
   getOffices:     (params)        => api.get('/locations/offices', { params }),
   getOffice:      (id)            => api.get(`/locations/offices/${id}`),

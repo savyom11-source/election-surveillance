@@ -29,7 +29,9 @@ export default function Dashboard({ isStandalone = false }) {
   const [selectedState, setSelectedState]       = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [selectedOffice, setSelectedOffice]     = useState('');
+  const [selectedAssembly, setSelectedAssembly] = useState('');
   const [districts, setDistricts]               = useState([]);
+  const [assemblies, setAssemblies]             = useState([]);
   const [offices, setOffices]                   = useState([]);
   const [statusFilter, setStatusFilter]         = useState('ALL');
   const [placementFilter, setPlacementFilter]   = useState('');
@@ -58,6 +60,7 @@ export default function Dashboard({ isStandalone = false }) {
       if (placementFilter) params.placement = placementFilter;
       if (streamIdFilter) params.streamId = streamIdFilter;
       if (selectedOffice) params.officeId = selectedOffice;
+      else if (selectedAssembly) params.assemblyId = selectedAssembly;
       else if (selectedDistrict) params.districtId = selectedDistrict;
       else if (selectedState) params.stateId = selectedState;
 
@@ -78,7 +81,7 @@ export default function Dashboard({ isStandalone = false }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [page, statusFilter, placementFilter, streamIdFilter, selectedState, selectedDistrict, selectedOffice, gridLimit]);
+  }, [page, statusFilter, placementFilter, streamIdFilter, selectedState, selectedDistrict, selectedAssembly, selectedOffice, gridLimit]);
 
   // Auto-rotation timer
   useEffect(() => {
@@ -136,7 +139,23 @@ export default function Dashboard({ isStandalone = false }) {
 
   useEffect(() => {
     if (selectedDistrict) {
-      locationsApi.getOffices({ districtId: selectedDistrict })
+      locationsApi.getAssemblies({ districtId: selectedDistrict })
+        .then((r) => {
+          const fetchedAssemblies = r.data.data;
+          setAssemblies(fetchedAssemblies);
+        })
+        .catch(() => {});
+    } else {
+      setAssemblies([]);
+      setSelectedAssembly('');
+      setOffices([]);
+      setSelectedOffice('');
+    }
+  }, [selectedDistrict]);
+
+  useEffect(() => {
+    if (selectedAssembly) {
+      locationsApi.getOffices({ assemblyId: selectedAssembly })
         .then((r) => {
           const fetchedOffices = r.data.data;
           setOffices(fetchedOffices);
@@ -149,7 +168,7 @@ export default function Dashboard({ isStandalone = false }) {
       setOffices([]);
       setSelectedOffice('');
     }
-  }, [selectedDistrict, isOfficeLocked]);
+  }, [selectedAssembly, isOfficeLocked]);
 
   useEffect(() => { fetchCameras(); }, [fetchCameras]);
 
@@ -283,7 +302,7 @@ export default function Dashboard({ isStandalone = false }) {
             />
 
             <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
-              value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict(''); setSelectedOffice(''); setPage(1); }}
+              value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict(''); setSelectedAssembly(''); setSelectedOffice(''); setPage(1); }}
               disabled={isStateLocked}>
               <option value="">All States</option>
               {states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -291,10 +310,18 @@ export default function Dashboard({ isStandalone = false }) {
 
             {districts.length > 0 && (
               <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
-                value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedOffice(''); setPage(1); }}
+                value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedAssembly(''); setSelectedOffice(''); setPage(1); }}
                 disabled={isDistrictLocked}>
               <option value="">All Districts</option>
               {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            )}
+
+            {assemblies.length > 0 && (
+              <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
+                value={selectedAssembly} onChange={(e) => { setSelectedAssembly(e.target.value); setSelectedOffice(''); setPage(1); }}>
+              <option value="">All Assemblies</option>
+              {assemblies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
             )}
 
@@ -302,7 +329,7 @@ export default function Dashboard({ isStandalone = false }) {
               <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
                 value={selectedOffice} onChange={(e) => { setSelectedOffice(e.target.value); setPage(1); }}
                 disabled={isOfficeLocked}>
-              <option value="">All Assemblies</option>
+              <option value="">All Polling Stations</option>
               {offices.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
             )}
@@ -322,10 +349,11 @@ export default function Dashboard({ isStandalone = false }) {
               <option value="NOT_CONNECTED">Not Connected</option>
             </select>
 
-            {(selectedState || selectedDistrict || selectedOffice || statusFilter !== 'ALL' || placementFilter || streamIdFilter) && (
+            {(selectedState || selectedDistrict || selectedAssembly || selectedOffice || statusFilter !== 'ALL' || placementFilter || streamIdFilter) && (
               <button className="btn btn-ghost btn-sm" onClick={() => { 
                 if (!isStateLocked) setSelectedState(''); 
                 if (!isDistrictLocked) setSelectedDistrict(''); 
+                setSelectedAssembly('');
                 if (!isOfficeLocked) setSelectedOffice('');
                 setStatusFilter('ALL'); 
                 setPlacementFilter('');

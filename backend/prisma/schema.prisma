@@ -11,6 +11,7 @@ enum Role {
   SUPER_ADMIN
   STATE_ADMIN
   DISTRICT_OBSERVER
+  ASSEMBLY_OBSERVER
   OFFICE_OBSERVER
 }
 
@@ -75,10 +76,23 @@ model District {
   updatedAt DateTime @updatedAt
   stateId   String
   state     State    @relation(fields: [stateId], references: [id], onDelete: Cascade)
-  offices    Office[]
+  assemblies Assembly[]
   userScopes UserScope[]
   @@unique([stateId, code])
   @@map("districts")
+}
+
+model Assembly {
+  id         String   @id @default(uuid())
+  name       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  districtId String
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  offices    Office[]
+  userScopes UserScope[]
+  @@map("assemblies")
 }
 
 model Office {
@@ -88,8 +102,8 @@ model Office {
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  districtId String
-  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  assemblyId String
+  assembly   Assembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
   cameras    Camera[]
   userScopes UserScope[]
   @@map("offices")
@@ -156,10 +170,13 @@ model UserScope {
   state      State?    @relation(fields: [stateId], references: [id])
   districtId String?
   district   District? @relation(fields: [districtId], references: [id])
+  assemblyId String?
+  assembly   Assembly? @relation(fields: [assemblyId], references: [id])
   officeId   String?
   office     Office?   @relation(fields: [officeId], references: [id])
   @@unique([userId, stateId])
   @@unique([userId, districtId])
+  @@unique([userId, assemblyId])
   @@unique([userId, officeId])
   @@map("user_scopes")
 }

@@ -42,10 +42,15 @@ const cameraSelect = {
   office: {
     select: {
       id: true, name: true,
-      district: {
+      assembly: {
         select: {
-          id: true, name: true, code: true,
-          state: { select: { id: true, name: true, code: true } },
+          id: true, name: true,
+          district: {
+            select: {
+              id: true, name: true, code: true,
+              state: { select: { id: true, name: true, code: true } },
+            },
+          },
         },
       },
     },
@@ -58,7 +63,7 @@ const cameraSelect = {
 const getCameras = asyncHandler(async (req, res) => {
   const page   = Math.max(parseInt(req.query.page)  || 1, 1);
   const limit  = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
-  const { status, officeId, districtId, stateId, isActive, placement, streamId, prbhNo, boothNumber } = req.query;
+  const { status, officeId, assemblyId, districtId, stateId, isActive, placement, streamId, prbhNo, boothNumber } = req.query;
 
   const validStatuses = ['ACTIVE', 'INACTIVE', 'NOT_CONNECTED'];
   const isValidStatus = status && validStatuses.includes(status.toUpperCase());
@@ -69,8 +74,9 @@ const getCameras = asyncHandler(async (req, res) => {
     ...(isValidStatus && { status: status.toUpperCase() }),
     ...(placement  && { placement }),
     ...(officeId   && { officeId }),
-    ...(districtId && { office: { districtId } }),
-    ...(stateId    && { office: { district: { stateId } } }),
+    ...(assemblyId && { office: { assemblyId } }),
+    ...(districtId && { office: { assembly: { districtId } } }),
+    ...(stateId    && { office: { assembly: { district: { stateId } } } }),
     ...(streamId   && { streamUrl: { contains: streamId, mode: 'insensitive' } }),
     ...(prbhNo     && { prbhNo: { contains: prbhNo, mode: 'insensitive' } }),
     ...(boothNumber&& { boothNumber: { contains: boothNumber, mode: 'insensitive' } }),
@@ -182,11 +188,11 @@ const createCamera = asyncHandler(async (req, res) => {
   const { name, description, streamUrl, streamType, status, officeId, prbhNo, boothNumber, serialNo, cloudId } = req.body;
 
   // Validate office exists
-  const office = await prisma.office.findUnique({ where: { id: officeId }, include: { district: true } });
+  const office = await prisma.office.findUnique({ where: { id: officeId }, include: { assembly: { include: { district: true } } } });
   if (!office) throw new ValidationError('officeId does not reference an existing office');
 
   if (!req.scope.isSuperAdmin) {
-    if (!req.scope.stateIds.includes(office.district.stateId)) {
+    if (!req.scope.stateIds.includes(office.assembly.district.stateId)) {
       throw new ForbiddenError('You can only create cameras within your assigned state');
     }
   }
@@ -239,10 +245,10 @@ const updateCamera = asyncHandler(async (req, res) => {
   if (!hasAccess) throw new ForbiddenError('Access denied to modify this camera');
 
   if (officeId) {
-    const office = await prisma.office.findUnique({ where: { id: officeId }, include: { district: true } });
+    const office = await prisma.office.findUnique({ where: { id: officeId }, include: { assembly: { include: { district: true } } } });
     if (!office) throw new ValidationError('officeId does not reference an existing office');
     
-    if (!req.scope.isSuperAdmin && !req.scope.stateIds.includes(office.district.stateId)) {
+    if (!req.scope.isSuperAdmin && !req.scope.stateIds.includes(office.assembly.district.stateId)) {
       throw new ForbiddenError('You can only assign cameras to offices within your assigned state');
     }
   }

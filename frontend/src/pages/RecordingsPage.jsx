@@ -78,7 +78,7 @@ export default function RecordingsPage() {
   }
 
   const filteredCameras = selectedState
-    ? cameras.filter((c) => c.office?.district?.state?.id === selectedState)
+    ? cameras.filter((c) => c.office?.assembly?.district?.state?.id === selectedState)
     : cameras;
 
   return (
@@ -176,7 +176,7 @@ export default function RecordingsPage() {
                     </td>
                     <td style={{ color: 'var(--text-bright)', fontWeight: 600 }}>{rec.camera?.name}</td>
                     <td>{rec.camera?.office?.name}</td>
-                    <td><span className="badge badge-blue">{rec.camera?.office?.district?.state?.code}</span></td>
+                    <td><span className="badge badge-blue">{rec.camera?.office?.assembly?.district?.state?.code}</span></td>
                     <td style={{ fontFamily: 'Share Tech Mono', fontSize: 11 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Clock size={11} />{formatDuration(rec.durationSec)}</div>
                     </td>

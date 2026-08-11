@@ -1,11 +1,11 @@
 // ============================================================
-// ADMIN LOCATIONS PAGE — Manage States, Districts, Offices
+// ADMIN LOCATIONS PAGE — Manage States, Districts, Assemblies, Offices
 // With Activate / Deactivate toggle
 // Super Admin only
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { MapPin, Plus, Edit2, Trash2, X, Building2, Map, CheckCircle } from 'lucide-react';
+import { MapPin, Plus, Edit2, Trash2, X, Building2, Map, Flag } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { locationsApi } from '../../api/services';
 import useAuthStore from '../../store/authStore';
@@ -77,9 +77,9 @@ function DistrictForm({ initial = {}, states, onSubmit, onClose, loading }) {
   );
 }
 
-// ---- Office Form ----
-function OfficeForm({ initial = {}, districts, onSubmit, onClose, loading }) {
-  const [form, setForm] = useState({ name: '', address: '', districtId: '', ...initial });
+// ---- Assembly Form ----
+function AssemblyForm({ initial = {}, districts, onSubmit, onClose, loading }) {
+  const [form, setForm] = useState({ name: '', districtId: '', ...initial });
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div className="form-group">
@@ -87,6 +87,32 @@ function OfficeForm({ initial = {}, districts, onSubmit, onClose, loading }) {
         <select className="form-input" value={form.districtId} onChange={(e) => setForm({ ...form, districtId: e.target.value })}>
           <option value="">Select District</option>
           {districts.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.state?.name}</option>)}
+        </select>
+      </div>
+      <div className="form-group">
+        <label className="form-label">Assembly Name</label>
+        <input className="form-input" placeholder="e.g. Kota North" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+        <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => onSubmit(form)} disabled={loading}>
+          {loading ? <><div className="spinner" style={{ width: 14, height: 14 }} />Saving...</> : 'Save Assembly'}
+        </button>
+        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ---- Office Form ----
+function OfficeForm({ initial = {}, assemblies, onSubmit, onClose, loading }) {
+  const [form, setForm] = useState({ name: '', address: '', assemblyId: '', ...initial });
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="form-group">
+        <label className="form-label">Assembly</label>
+        <select className="form-input" value={form.assemblyId} onChange={(e) => setForm({ ...form, assemblyId: e.target.value })}>
+          <option value="">Select Assembly</option>
+          {assemblies.map((a) => <option key={a.id} value={a.id}>{a.name} — {a.district?.name}</option>)}
         </select>
       </div>
       <div className="form-group">
@@ -112,6 +138,7 @@ export default function AdminLocationsPage() {
   const [tab, setTab]         = useState('states');
   const [states, setStates]   = useState([]);
   const [districts, setDistricts] = useState([]);
+  const [assemblies, setAssemblies] = useState([]);
   const [offices, setOffices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -123,13 +150,15 @@ export default function AdminLocationsPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, d, o] = await Promise.all([
+      const [s, d, a, o] = await Promise.all([
         locationsApi.getStates({ includeInactive: true }),
         locationsApi.getDistricts({ includeInactive: true }),
+        locationsApi.getAssemblies({ includeInactive: true }),
         locationsApi.getOffices({ includeInactive: true }),
       ]);
       setStates(s.data.data);
       setDistricts(d.data.data);
+      setAssemblies(a.data.data);
       setOffices(o.data.data);
     } catch { toast.error('Failed to load locations'); }
     finally { setLoading(false); }
@@ -139,7 +168,7 @@ export default function AdminLocationsPage() {
 
   // ---- Delete Handlers ----
   async function handleDeleteState(s) {
-    if (!window.confirm(`Are you sure you want to permanently delete State "${s.name}"?\nWARNING: This will delete ALL districts, offices, and cameras inside it! This action cannot be undone.`)) return;
+    if (!window.confirm(`Are you sure you want to permanently delete State "${s.name}"?\nWARNING: This will delete ALL districts, assemblies, offices, and cameras inside it! This action cannot be undone.`)) return;
     setActioning(s.id);
     try {
       await locationsApi.deleteState(s.id);
@@ -150,11 +179,22 @@ export default function AdminLocationsPage() {
   }
 
   async function handleDeleteDistrict(d) {
-    if (!window.confirm(`Are you sure you want to permanently delete District "${d.name}"?\nWARNING: This will delete ALL offices and cameras inside it! This action cannot be undone.`)) return;
+    if (!window.confirm(`Are you sure you want to permanently delete District "${d.name}"?\nWARNING: This will delete ALL assemblies, offices and cameras inside it! This action cannot be undone.`)) return;
     setActioning(d.id);
     try {
       await locationsApi.deleteDistrict(d.id);
       toast.success(`"${d.name}" deleted entirely`);
+      fetchAll();
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Action failed'); }
+    finally { setActioning(null); }
+  }
+
+  async function handleDeleteAssembly(a) {
+    if (!window.confirm(`Are you sure you want to permanently delete Assembly "${a.name}"?\nWARNING: This will delete ALL offices and cameras inside it! This action cannot be undone.`)) return;
+    setActioning(a.id);
+    try {
+      await locationsApi.deleteAssembly(a.id);
+      toast.success(`"${a.name}" deleted entirely`);
       fetchAll();
     } catch (err) { toast.error(err.response?.data?.error?.message || 'Action failed'); }
     finally { setActioning(null); }
@@ -212,6 +252,26 @@ export default function AdminLocationsPage() {
     finally { setSaving(false); }
   }
 
+  async function handleCreateAssembly(form) {
+    setSaving(true);
+    try {
+      await locationsApi.createAssembly(form);
+      toast.success('Assembly created');
+      setModal(null); fetchAll();
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Failed'); }
+    finally { setSaving(false); }
+  }
+
+  async function handleUpdateAssembly(id, form) {
+    setSaving(true);
+    try {
+      await locationsApi.updateAssembly(id, form);
+      toast.success('Assembly updated');
+      setModal(null); fetchAll();
+    } catch (err) { toast.error(err.response?.data?.error?.message || 'Failed'); }
+    finally { setSaving(false); }
+  }
+
   async function handleCreateOffice(form) {
     setSaving(true);
     try {
@@ -233,9 +293,10 @@ export default function AdminLocationsPage() {
   }
 
   const TABS = [
-    { key: 'states',    label: 'States',    icon: Map,       count: states.length },
-    { key: 'districts', label: 'Districts', icon: MapPin,    count: districts.length },
-    { key: 'offices',   label: 'Offices',   icon: Building2, count: offices.length },
+    { key: 'states',     label: 'States',     icon: Map,       count: states.length },
+    { key: 'districts',  label: 'Districts',  icon: MapPin,    count: districts.length },
+    { key: 'assemblies', label: 'Assemblies', icon: Flag,      count: assemblies.length },
+    { key: 'offices',    label: 'Offices',    icon: Building2, count: offices.length },
   ];
 
   function ActionButtons({ item, onDelete, onEdit }) {
@@ -267,7 +328,7 @@ export default function AdminLocationsPage() {
         </div>
         {!(tab === 'states' && !isSuperAdmin) && (
           <button className="btn btn-primary" onClick={() => setModal({ type: tab, data: null })}>
-            <Plus size={14} /> Add {tab === 'states' ? 'State' : tab === 'districts' ? 'District' : 'Office'}
+            <Plus size={14} /> Add {tab === 'states' ? 'State' : tab === 'districts' ? 'District' : tab === 'assemblies' ? 'Assembly' : 'Office'}
           </button>
         )}
       </div>
@@ -308,28 +369,43 @@ export default function AdminLocationsPage() {
               </>}
 
               {tab === 'districts' && <>
-                <thead><tr><th>Name</th><th>Code</th><th>State</th><th>Offices</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Code</th><th>State</th><th>Assemblies</th><th>Actions</th></tr></thead>
                 <tbody>
                   {districts.map((d) => (
                     <tr key={d.id}>
                       <td style={{ fontWeight: 600, color: 'var(--text-bright)' }}>{d.name}</td>
                       <td><span className="badge badge-dim">{d.code}</span></td>
                       <td><span className="badge badge-blue">{d.state?.code}</span></td>
-                      <td style={{ color: 'var(--text-dim)' }}>{d._count?.offices || 0}</td>
+                      <td style={{ color: 'var(--text-dim)' }}>{d._count?.assemblies || 0}</td>
                       <td><ActionButtons item={d} onDelete={handleDeleteDistrict} onEdit={(item) => setModal({ type: 'districts', data: item })} /></td>
                     </tr>
                   ))}
                 </tbody>
               </>}
 
+              {tab === 'assemblies' && <>
+                <thead><tr><th>Name</th><th>District</th><th>State</th><th>Offices</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {assemblies.map((a) => (
+                    <tr key={a.id}>
+                      <td style={{ fontWeight: 600, color: 'var(--text-bright)' }}>{a.name}</td>
+                      <td>{a.district?.name}</td>
+                      <td><span className="badge badge-blue">{a.district?.state?.code}</span></td>
+                      <td style={{ color: 'var(--text-dim)' }}>{a._count?.offices || 0}</td>
+                      <td><ActionButtons item={a} onDelete={handleDeleteAssembly} onEdit={(item) => setModal({ type: 'assemblies', data: item })} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </>}
+
               {tab === 'offices' && <>
-                <thead><tr><th>Name</th><th>District</th><th>State</th><th>Cameras</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Name</th><th>Assembly</th><th>District</th><th>Cameras</th><th>Actions</th></tr></thead>
                 <tbody>
                   {offices.map((o) => (
                     <tr key={o.id}>
                       <td style={{ fontWeight: 600, color: 'var(--text-bright)' }}>{o.name}</td>
-                      <td>{o.district?.name}</td>
-                      <td><span className="badge badge-blue">{o.district?.state?.code}</span></td>
+                      <td>{o.assembly?.name}</td>
+                      <td><span className="badge badge-dim">{o.assembly?.district?.name}</span></td>
                       <td style={{ color: 'var(--text-dim)' }}>{o._count?.cameras || 0}</td>
                       <td><ActionButtons item={o} onDelete={handleDeleteOffice} onEdit={(item) => setModal({ type: 'offices', data: item })} /></td>
                     </tr>
@@ -356,9 +432,16 @@ export default function AdminLocationsPage() {
             onSubmit={(form) => modal.data ? handleUpdateDistrict(modal.data.id, form) : handleCreateDistrict(form)} />
         </Modal>
       )}
+      {modal?.type === 'assemblies' && (
+        <Modal title={modal.data ? 'Edit Assembly' : 'Add Assembly'} onClose={() => setModal(null)}>
+          <AssemblyForm initial={modal.data || {}} districts={districts} loading={saving}
+            onClose={() => setModal(null)}
+            onSubmit={(form) => modal.data ? handleUpdateAssembly(modal.data.id, form) : handleCreateAssembly(form)} />
+        </Modal>
+      )}
       {modal?.type === 'offices' && (
         <Modal title={modal.data ? 'Edit Office' : 'Add Office'} onClose={() => setModal(null)}>
-          <OfficeForm initial={modal.data || {}} districts={districts} loading={saving}
+          <OfficeForm initial={modal.data || {}} assemblies={assemblies} loading={saving}
             onClose={() => setModal(null)}
             onSubmit={(form) => modal.data ? handleUpdateOffice(modal.data.id, form) : handleCreateOffice(form)} />
         </Modal>

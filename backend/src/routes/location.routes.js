@@ -16,6 +16,8 @@ const {
   updateStateSchema,
   createDistrictSchema,
   updateDistrictSchema,
+  createAssemblySchema,
+  updateAssemblySchema,
   createOfficeSchema,
   updateOfficeSchema,
 } = require('../validators/location.validator');
@@ -39,6 +41,13 @@ router.post('/districts', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(cr
 router.get('/districts/:id', locationController.getDistrictById);
 router.patch('/districts/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(updateDistrictSchema), locationController.updateDistrict);
 router.delete('/districts/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), locationController.deleteDistrict);
+
+// ---- Assemblies ----
+router.get('/assemblies', locationController.getAssemblies);
+router.post('/assemblies', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(createAssemblySchema), locationController.createAssembly);
+router.get('/assemblies/:id', locationController.getAssemblyById);
+router.patch('/assemblies/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), validate(updateAssemblySchema), locationController.updateAssembly);
+router.delete('/assemblies/:id', requireRole('SUPER_ADMIN', 'STATE_ADMIN'), locationController.deleteAssembly);
 
 // ---- Offices ----
 router.get('/offices', locationController.getOffices);

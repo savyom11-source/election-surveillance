@@ -61,7 +61,8 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
 
       const stateName    = getVal(['state']);
       const districtName = getVal(['district']);
-      const officeName   = getVal(['polling', 'assembly', 'office', 'building']);
+      const assemblyName = getVal(['assembly', 'ac name', 'ac no']);
+      const officeName   = getVal(['polling', 'office', 'building', 'address']);
       const prbhNo       = getVal(['prbh']);
       const boothNumber  = getVal(['booth']);
       const serialNo     = getVal(['serial']);
@@ -71,8 +72,8 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
       const streamId     = getVal(['stream id', 'rtmp', 'rtsp']);
       let cameraName     = getVal(['camera name', 'name']);
 
-      if (!stateName || !districtName || !officeName || !streamId) {
-        errors.push(`Row ${rowNum}: Missing required fields (State, District, Assembly, or RTMP)`);
+      if (!stateName || !districtName || !assemblyName || !officeName || !streamId) {
+        errors.push(`Row ${rowNum}: Missing required fields (State, District, Assembly, Office, or Stream ID)`);
         continue;
       }
 
@@ -104,16 +105,29 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
         });
       }
 
+      // Upsert Assembly
+      let assembly = await prisma.assembly.findFirst({
+        where: {
+          districtId: district.id,
+          name: { equals: assemblyName, mode: 'insensitive' }
+        }
+      });
+      if (!assembly) {
+        assembly = await prisma.assembly.create({
+          data: { name: assemblyName, districtId: district.id }
+        });
+      }
+
       // Upsert Office
       let office = await prisma.office.findFirst({
         where: {
-          districtId: district.id,
+          assemblyId: assembly.id,
           name: { equals: officeName, mode: 'insensitive' }
         }
       });
       if (!office) {
         office = await prisma.office.create({
-          data: { name: officeName, districtId: district.id }
+          data: { name: officeName, assemblyId: assembly.id }
         });
       }
 

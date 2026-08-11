@@ -42,7 +42,7 @@ async function loadUserScope(req, res, next) {
 
     const scopes = await prisma.userScope.findMany({
       where: { userId: req.user.userId },
-      select: { stateId: true, districtId: true, officeId: true },
+      select: { stateId: true, districtId: true, assemblyId: true, officeId: true },
     });
 
     const role = req.user.role;
@@ -50,6 +50,7 @@ async function loadUserScope(req, res, next) {
       isSuperAdmin: false,
       stateIds: role === 'STATE_ADMIN' ? scopes.filter(s => s.stateId).map(s => s.stateId) : [],
       districtIds: role === 'DISTRICT_OBSERVER' ? scopes.filter(s => s.districtId).map(s => s.districtId) : [],
+      assemblyIds: role === 'ASSEMBLY_OBSERVER' ? scopes.filter(s => s.assemblyId).map(s => s.assemblyId) : [],
       officeIds: role === 'OFFICE_OBSERVER' ? scopes.filter(s => s.officeId).map(s => s.officeId) : [],
     };
 
@@ -75,8 +76,9 @@ function buildCameraScopeFilter(scope) {
   return {
     OR: [
       { officeId: { in: scope.officeIds } },
-      { office: { districtId: { in: scope.districtIds } } },
-      { office: { district: { stateId: { in: scope.stateIds } } } },
+      { office: { assemblyId: { in: scope.assemblyIds } } },
+      { office: { assembly: { districtId: { in: scope.districtIds } } } },
+      { office: { assembly: { district: { stateId: { in: scope.stateIds } } } } },
     ],
   };
 }
@@ -98,7 +100,8 @@ function buildStateScopeFilter(scope) {
     OR: [
       { id: { in: scope.stateIds } },
       { districts: { some: { id: { in: scope.districtIds } } } },
-      { districts: { some: { offices: { some: { id: { in: scope.officeIds } } } } } },
+      { districts: { some: { assemblies: { some: { id: { in: scope.assemblyIds } } } } } },
+      { districts: { some: { assemblies: { some: { offices: { some: { id: { in: scope.officeIds } } } } } } } },
     ],
   };
 }
@@ -120,6 +123,23 @@ function buildDistrictScopeFilter(scope) {
     OR: [
       { id: { in: scope.districtIds } },
       { stateId: { in: scope.stateIds } },
+      { assemblies: { some: { id: { in: scope.assemblyIds } } } },
+      { assemblies: { some: { offices: { some: { id: { in: scope.officeIds } } } } } },
+    ],
+  };
+}
+
+/**
+ * buildAssemblyScopeFilter — restricts Assembly queries to user's scope
+ */
+function buildAssemblyScopeFilter(scope) {
+  if (scope.isSuperAdmin) return {};
+
+  return {
+    OR: [
+      { id: { in: scope.assemblyIds } },
+      { districtId: { in: scope.districtIds } },
+      { district: { stateId: { in: scope.stateIds } } },
       { offices: { some: { id: { in: scope.officeIds } } } },
     ],
   };
@@ -134,8 +154,9 @@ function buildOfficeScopeFilter(scope) {
   return {
     OR: [
       { id: { in: scope.officeIds } },
-      { districtId: { in: scope.districtIds } },
-      { district: { stateId: { in: scope.stateIds } } },
+      { assemblyId: { in: scope.assemblyIds } },
+      { assembly: { districtId: { in: scope.districtIds } } },
+      { assembly: { district: { stateId: { in: scope.stateIds } } } },
     ],
   };
 }
@@ -152,18 +173,20 @@ async function checkCameraAccess(req, cameraId) {
     where: { id: cameraId },
     select: {
       officeId: true,
-      office: { select: { districtId: true, district: { select: { stateId: true } } } },
+      office: { select: { assemblyId: true, assembly: { select: { districtId: true, district: { select: { stateId: true } } } } } },
     },
   });
 
   if (!camera) return false;
 
   const { officeId, office } = camera;
-  const districtId = office.districtId;
-  const stateId = office.district.stateId;
+  const assemblyId = office.assemblyId;
+  const districtId = office.assembly.districtId;
+  const stateId = office.assembly.district.stateId;
 
   const hasAccess =
     req.scope.officeIds.includes(officeId) ||
+    req.scope.assemblyIds.includes(assemblyId) ||
     req.scope.districtIds.includes(districtId) ||
     req.scope.stateIds.includes(stateId);
 
@@ -175,6 +198,7 @@ module.exports = {
   loadUserScope,
   buildStateScopeFilter,
   buildDistrictScopeFilter,
+  buildAssemblyScopeFilter,
   buildOfficeScopeFilter,
   buildCameraScopeFilter,
   checkCameraAccess,

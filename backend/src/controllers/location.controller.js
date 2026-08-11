@@ -1,14 +1,16 @@
 // ============================================================
-// LOCATION CONTROLLER — States / Districts / Offices CRUD
+// LOCATION CONTROLLER — States / Districts / Assemblies / Offices CRUD
 //
 // CASCADE SOFT-DELETE:
-//   Deactivate State    → deactivates Districts + Offices + Cameras
-//   Deactivate District → deactivates Offices + Cameras
+//   Deactivate State    → deactivates Districts + Assemblies + Offices + Cameras
+//   Deactivate District → deactivates Assemblies + Offices + Cameras
+//   Deactivate Assembly → deactivates Offices + Cameras
 //   Deactivate Office   → deactivates Cameras
 //
 // CASCADE REACTIVATE:
-//   Reactivate State    → reactivates Districts + Offices + Cameras
-//   Reactivate District → reactivates Offices + Cameras
+//   Reactivate State    → reactivates Districts + Assemblies + Offices + Cameras
+//   Reactivate District → reactivates Assemblies + Offices + Cameras
+//   Reactivate Assembly → reactivates Offices + Cameras
 //   Reactivate Office   → reactivates Cameras
 // ============================================================
 
@@ -18,6 +20,7 @@ const { logAudit } = require('../services/audit.service');
 const {
   buildStateScopeFilter,
   buildDistrictScopeFilter,
+  buildAssemblyScopeFilter,
   buildOfficeScopeFilter,
 } = require('../middleware/rbac');
 const { ForbiddenError } = require('../utils/errors');
@@ -83,37 +86,22 @@ const updateState = asyncHandler(async (req, res) => {
 
   // ---- CASCADE REACTIVATE ----
   if (isActive === true && existing.isActive === false) {
-    // Find all district IDs under this state
-    const districts = await prisma.district.findMany({
-      where: { stateId: id },
-      select: { id: true },
-    });
-    const districtIds = districts.map((d) => d.id);
+    const districts = await prisma.district.findMany({ where: { stateId: id }, select: { id: true } });
+    const districtIds = districts.map(d => d.id);
 
-    // Find all office IDs under those districts
-    const offices = districtIds.length
-      ? await prisma.office.findMany({
-          where: { districtId: { in: districtIds } },
-          select: { id: true },
-        })
-      : [];
-    const officeIds = offices.map((o) => o.id);
+    const assemblies = districtIds.length ? await prisma.assembly.findMany({ where: { districtId: { in: districtIds } }, select: { id: true } }) : [];
+    const assemblyIds = assemblies.map(a => a.id);
+
+    const offices = assemblyIds.length ? await prisma.office.findMany({ where: { assemblyId: { in: assemblyIds } }, select: { id: true } }) : [];
+    const officeIds = offices.map(o => o.id);
 
     await prisma.$transaction([
       // Reactivate the state
       prisma.state.update({ where: { id }, data: { isActive: true } }),
-      // Reactivate all districts
-      ...(districtIds.length
-        ? [prisma.district.updateMany({ where: { id: { in: districtIds } }, data: { isActive: true } })]
-        : []),
-      // Reactivate all offices
-      ...(officeIds.length
-        ? [prisma.office.updateMany({ where: { id: { in: officeIds } }, data: { isActive: true } })]
-        : []),
-      // Reactivate all cameras
-      ...(officeIds.length
-        ? [prisma.camera.updateMany({ where: { officeId: { in: officeIds } }, data: { isActive: true } })]
-        : []),
+      ...(districtIds.length ? [prisma.district.updateMany({ where: { id: { in: districtIds } }, data: { isActive: true } })] : []),
+      ...(assemblyIds.length ? [prisma.assembly.updateMany({ where: { id: { in: assemblyIds } }, data: { isActive: true } })] : []),
+      ...(officeIds.length ? [prisma.office.updateMany({ where: { id: { in: officeIds } }, data: { isActive: true } })] : []),
+      ...(officeIds.length ? [prisma.camera.updateMany({ where: { officeId: { in: officeIds } }, data: { isActive: true } })] : []),
     ]);
 
     await logAudit({
@@ -121,7 +109,7 @@ const updateState = asyncHandler(async (req, res) => {
       action: 'UPDATE_LOCATION',
       metadata: {
         type: 'state', id, action: 'reactivated',
-        cascadeReactivated: { districts: districtIds.length, offices: officeIds.length },
+        cascadeReactivated: { districts: districtIds.length, assemblies: assemblyIds.length, offices: officeIds.length },
       },
       req,
     });
@@ -130,11 +118,11 @@ const updateState = asyncHandler(async (req, res) => {
     return res.json({
       success: true,
       data: updated,
-      message: `State reactivated along with ${districtIds.length} district(s), ${officeIds.length} office(s) and their cameras`,
+      message: `State reactivated along with ${districtIds.length} district(s), ${assemblyIds.length} assembly(s), ${officeIds.length} office(s) and their cameras`,
     });
   }
 
-  // Normal update (name/code/deactivate without cascade)
+  // Normal update
   const state = await prisma.state.update({
     where: { id },
     data: {
@@ -162,12 +150,13 @@ const deleteState = asyncHandler(async (req, res) => {
 
   // ---- HARD DELETE (CASCADE) ----
   const districts = await prisma.district.findMany({ where: { stateId: id }, select: { id: true } });
-  const districtIds = districts.map((d) => d.id);
+  const districtIds = districts.map(d => d.id);
 
-  const offices = districtIds.length
-    ? await prisma.office.findMany({ where: { districtId: { in: districtIds } }, select: { id: true } })
-    : [];
-  const officeIds = offices.map((o) => o.id);
+  const assemblies = districtIds.length ? await prisma.assembly.findMany({ where: { districtId: { in: districtIds } }, select: { id: true } }) : [];
+  const assemblyIds = assemblies.map(a => a.id);
+
+  const offices = assemblyIds.length ? await prisma.office.findMany({ where: { assemblyId: { in: assemblyIds } }, select: { id: true } }) : [];
+  const officeIds = offices.map(o => o.id);
 
   const cameras = officeIds.length
     ? await prisma.camera.findMany({ where: { officeId: { in: officeIds } }, select: { id: true } })
@@ -177,6 +166,7 @@ const deleteState = asyncHandler(async (req, res) => {
   await prisma.$transaction([
     prisma.userScope.deleteMany({ where: { stateId: id } }),
     ...(districtIds.length ? [prisma.userScope.deleteMany({ where: { districtId: { in: districtIds } } })] : []),
+    ...(assemblyIds.length ? [prisma.userScope.deleteMany({ where: { assemblyId: { in: assemblyIds } } })] : []),
     ...(officeIds.length ? [prisma.userScope.deleteMany({ where: { officeId: { in: officeIds } } })] : []),
     ...(cameraIds.length ? [prisma.auditLog.deleteMany({ where: { cameraId: { in: cameraIds } } })] : []),
     prisma.state.delete({ where: { id } }),
@@ -187,7 +177,7 @@ const deleteState = asyncHandler(async (req, res) => {
     action: 'DELETE_LOCATION',
     metadata: {
       type: 'state', id, name: existing.name,
-      cascadeDeleted: { districts: districtIds.length, offices: officeIds.length, cameras: cameraIds.length },
+      cascadeDeleted: { districts: districtIds.length, assemblies: assemblyIds.length, offices: officeIds.length, cameras: cameraIds.length },
     },
     req,
   });
@@ -216,7 +206,7 @@ const getDistricts = asyncHandler(async (req, res) => {
     orderBy: { name: 'asc' },
     include: {
       state: { select: { id: true, name: true, code: true } },
-      _count: { select: { offices: true } },
+      _count: { select: { assemblies: true } },
     },
   });
   res.json({ success: true, data: districts });
@@ -227,7 +217,7 @@ const getDistrictById = asyncHandler(async (req, res) => {
     where: { id: req.params.id, ...buildDistrictScopeFilter(req.scope) },
     include: {
       state: { select: { id: true, name: true, code: true } },
-      _count: { select: { offices: true } },
+      _count: { select: { assemblies: true } },
     },
   });
   if (!district) throw new NotFoundError('District not found');
@@ -276,20 +266,17 @@ const updateDistrict = asyncHandler(async (req, res) => {
 
   // ---- CASCADE REACTIVATE ----
   if (isActive === true && existing.isActive === false) {
-    const offices = await prisma.office.findMany({
-      where: { districtId: id },
-      select: { id: true },
-    });
-    const officeIds = offices.map((o) => o.id);
+    const assemblies = await prisma.assembly.findMany({ where: { districtId: id }, select: { id: true } });
+    const assemblyIds = assemblies.map(a => a.id);
+
+    const offices = assemblyIds.length ? await prisma.office.findMany({ where: { assemblyId: { in: assemblyIds } }, select: { id: true } }) : [];
+    const officeIds = offices.map(o => o.id);
 
     await prisma.$transaction([
       prisma.district.update({ where: { id }, data: { isActive: true } }),
-      ...(officeIds.length
-        ? [prisma.office.updateMany({ where: { id: { in: officeIds } }, data: { isActive: true } })]
-        : []),
-      ...(officeIds.length
-        ? [prisma.camera.updateMany({ where: { officeId: { in: officeIds } }, data: { isActive: true } })]
-        : []),
+      ...(assemblyIds.length ? [prisma.assembly.updateMany({ where: { id: { in: assemblyIds } }, data: { isActive: true } })] : []),
+      ...(officeIds.length ? [prisma.office.updateMany({ where: { id: { in: officeIds } }, data: { isActive: true } })] : []),
+      ...(officeIds.length ? [prisma.camera.updateMany({ where: { officeId: { in: officeIds } }, data: { isActive: true } })] : []),
     ]);
 
     await logAudit({
@@ -297,7 +284,7 @@ const updateDistrict = asyncHandler(async (req, res) => {
       action: 'UPDATE_LOCATION',
       metadata: {
         type: 'district', id, action: 'reactivated',
-        cascadeReactivated: { offices: officeIds.length },
+        cascadeReactivated: { assemblies: assemblyIds.length, offices: officeIds.length },
       },
       req,
     });
@@ -306,7 +293,7 @@ const updateDistrict = asyncHandler(async (req, res) => {
     return res.json({
       success: true,
       data: updated,
-      message: `District reactivated along with ${officeIds.length} office(s) and their cameras`,
+      message: `District reactivated along with ${assemblyIds.length} assembly(s), ${officeIds.length} office(s) and their cameras`,
     });
   }
 
@@ -336,8 +323,11 @@ const deleteDistrict = asyncHandler(async (req, res) => {
   const existing = await prisma.district.findFirst({ where: { id, ...buildDistrictScopeFilter(req.scope) } });
   if (!existing) throw new NotFoundError('District not found or access denied');
 
-  const offices = await prisma.office.findMany({ where: { districtId: id }, select: { id: true } });
-  const officeIds = offices.map((o) => o.id);
+  const assemblies = await prisma.assembly.findMany({ where: { districtId: id }, select: { id: true } });
+  const assemblyIds = assemblies.map(a => a.id);
+
+  const offices = assemblyIds.length ? await prisma.office.findMany({ where: { assemblyId: { in: assemblyIds } }, select: { id: true } }) : [];
+  const officeIds = offices.map(o => o.id);
 
   const cameras = officeIds.length
     ? await prisma.camera.findMany({ where: { officeId: { in: officeIds } }, select: { id: true } })
@@ -346,6 +336,7 @@ const deleteDistrict = asyncHandler(async (req, res) => {
 
   await prisma.$transaction([
     prisma.userScope.deleteMany({ where: { districtId: id } }),
+    ...(assemblyIds.length ? [prisma.userScope.deleteMany({ where: { assemblyId: { in: assemblyIds } } })] : []),
     ...(officeIds.length ? [prisma.userScope.deleteMany({ where: { officeId: { in: officeIds } } })] : []),
     ...(cameraIds.length ? [prisma.auditLog.deleteMany({ where: { cameraId: { in: cameraIds } } })] : []),
     prisma.district.delete({ where: { id } }),
@@ -356,7 +347,7 @@ const deleteDistrict = asyncHandler(async (req, res) => {
     action: 'DELETE_LOCATION',
     metadata: {
       type: 'district', id, name: existing.name,
-      cascadeDeleted: { offices: officeIds.length, cameras: cameraIds.length },
+      cascadeDeleted: { assemblies: assemblyIds.length, offices: officeIds.length, cameras: cameraIds.length },
     },
     req,
   });
@@ -370,24 +361,134 @@ const deleteDistrict = asyncHandler(async (req, res) => {
 });
 
 // ============================================================
+// ASSEMBLIES
+// ============================================================
+
+const getAssemblies = asyncHandler(async (req, res) => {
+  const { districtId } = req.query;
+  const where = {
+    ...buildAssemblyScopeFilter(req.scope),
+    ...(districtId && { districtId }),
+    ...activeFilter(req),
+  };
+  const assemblies = await prisma.assembly.findMany({
+    where,
+    orderBy: { name: 'asc' },
+    include: {
+      district: { select: { id: true, name: true, code: true, state: { select: { id: true, name: true, code: true } } } },
+      _count: { select: { offices: true } },
+    },
+  });
+  res.json({ success: true, data: assemblies });
+});
+
+const getAssemblyById = asyncHandler(async (req, res) => {
+  const assembly = await prisma.assembly.findFirst({
+    where: { id: req.params.id, ...buildAssemblyScopeFilter(req.scope) },
+    include: {
+      district: { select: { id: true, name: true, code: true, state: { select: { id: true, name: true, code: true } } } },
+      _count: { select: { offices: true } },
+    },
+  });
+  if (!assembly) throw new NotFoundError('Assembly not found');
+  res.json({ success: true, data: assembly });
+});
+
+const createAssembly = asyncHandler(async (req, res) => {
+  const { name, districtId } = req.body;
+
+  const district = await prisma.district.findUnique({ where: { id: districtId } });
+  if (!district) throw new ValidationError('districtId does not reference an existing district');
+
+  if (!req.scope.isSuperAdmin) {
+    const hasAccess = await prisma.district.findFirst({ where: { id: districtId, ...buildDistrictScopeFilter(req.scope) } });
+    if (!hasAccess) throw new ForbiddenError('You can only create assemblies within your assigned scope');
+  }
+
+  const assembly = await prisma.assembly.create({ data: { name, districtId } });
+
+  await logAudit({ userId: req.user.userId, action: 'CREATE_LOCATION', metadata: { type: 'assembly', id: assembly.id, name: assembly.name }, req });
+  res.status(201).json({ success: true, data: assembly });
+});
+
+const updateAssembly = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name, districtId, isActive } = req.body;
+
+  const existing = await prisma.assembly.findFirst({ where: { id, ...buildAssemblyScopeFilter(req.scope) } });
+  if (!existing) throw new NotFoundError('Assembly not found or access denied');
+
+  if (districtId) {
+    const district = await prisma.district.findUnique({ where: { id: districtId } });
+    if (!district) throw new ValidationError('districtId does not reference an existing district');
+    if (!req.scope.isSuperAdmin) {
+      const hasAccess = await prisma.district.findFirst({ where: { id: districtId, ...buildDistrictScopeFilter(req.scope) } });
+      if (!hasAccess) throw new ForbiddenError('You can only assign assemblies to your assigned scope');
+    }
+  }
+
+  if (isActive === true && existing.isActive === false) {
+    const offices = await prisma.office.findMany({ where: { assemblyId: id }, select: { id: true } });
+    const officeIds = offices.map((o) => o.id);
+
+    await prisma.$transaction([
+      prisma.assembly.update({ where: { id }, data: { isActive: true } }),
+      ...(officeIds.length ? [prisma.office.updateMany({ where: { id: { in: officeIds } }, data: { isActive: true } })] : []),
+      ...(officeIds.length ? [prisma.camera.updateMany({ where: { officeId: { in: officeIds } }, data: { isActive: true } })] : []),
+    ]);
+
+    await logAudit({ userId: req.user.userId, action: 'UPDATE_LOCATION', metadata: { type: 'assembly', id, action: 'reactivated' }, req });
+    return res.json({ success: true, data: await prisma.assembly.findUnique({ where: { id } }), message: `Assembly reactivated` });
+  }
+
+  const assembly = await prisma.assembly.update({ where: { id }, data: { ...(name !== undefined && { name }), ...(districtId !== undefined && { districtId }), ...(isActive !== undefined && { isActive }) } });
+  await logAudit({ userId: req.user.userId, action: 'UPDATE_LOCATION', metadata: { type: 'assembly', id, changes: req.body }, req });
+  res.json({ success: true, data: assembly });
+});
+
+const deleteAssembly = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const existing = await prisma.assembly.findFirst({ where: { id, ...buildAssemblyScopeFilter(req.scope) } });
+  if (!existing) throw new NotFoundError('Assembly not found or access denied');
+
+  const offices = await prisma.office.findMany({ where: { assemblyId: id }, select: { id: true } });
+  const officeIds = offices.map((o) => o.id);
+
+  const cameras = officeIds.length ? await prisma.camera.findMany({ where: { officeId: { in: officeIds } }, select: { id: true } }) : [];
+  const cameraIds = cameras.map((c) => c.id);
+
+  await prisma.$transaction([
+    prisma.userScope.deleteMany({ where: { assemblyId: id } }),
+    ...(officeIds.length ? [prisma.userScope.deleteMany({ where: { officeId: { in: officeIds } } })] : []),
+    ...(cameraIds.length ? [prisma.auditLog.deleteMany({ where: { cameraId: { in: cameraIds } } })] : []),
+    prisma.assembly.delete({ where: { id } }),
+  ]);
+
+  await logAudit({ userId: req.user.userId, action: 'DELETE_LOCATION', metadata: { type: 'assembly', id, name: existing.name }, req });
+  res.json({ success: true, data: { message: `Assembly "${existing.name}" permanently deleted` } });
+});
+
+
+// ============================================================
 // OFFICES
 // ============================================================
 
 const getOffices = asyncHandler(async (req, res) => {
-  const { districtId } = req.query;
+  const { assemblyId } = req.query;
   const where = {
     ...buildOfficeScopeFilter(req.scope),
-    ...(districtId && { districtId }),
+    ...(assemblyId && { assemblyId }),
     ...activeFilter(req),
   };
   const offices = await prisma.office.findMany({
     where,
     orderBy: { name: 'asc' },
     include: {
-      district: {
+      assembly: {
         select: {
-          id: true, name: true, code: true,
-          state: { select: { id: true, name: true, code: true } },
+          id: true, name: true,
+          district: { select: { id: true, name: true, code: true, state: { select: { id: true, name: true, code: true } } } },
         },
       },
       _count: { select: { cameras: true } },
@@ -400,10 +501,10 @@ const getOfficeById = asyncHandler(async (req, res) => {
   const office = await prisma.office.findFirst({
     where: { id: req.params.id, ...buildOfficeScopeFilter(req.scope) },
     include: {
-      district: {
+      assembly: {
         select: {
-          id: true, name: true, code: true,
-          state: { select: { id: true, name: true, code: true } },
+          id: true, name: true,
+          district: { select: { id: true, name: true, code: true, state: { select: { id: true, name: true, code: true } } } },
         },
       },
       _count: { select: { cameras: true } },
@@ -414,17 +515,17 @@ const getOfficeById = asyncHandler(async (req, res) => {
 });
 
 const createOffice = asyncHandler(async (req, res) => {
-  const { name, address, districtId } = req.body;
+  const { name, address, assemblyId } = req.body;
 
-  const district = await prisma.district.findUnique({ where: { id: districtId } });
-  if (!district) throw new ValidationError('districtId does not reference an existing district');
+  const assembly = await prisma.assembly.findUnique({ where: { id: assemblyId } });
+  if (!assembly) throw new ValidationError('assemblyId does not reference an existing assembly');
 
   if (!req.scope.isSuperAdmin) {
-    const hasAccess = await prisma.district.findFirst({ where: { id: districtId, ...buildDistrictScopeFilter(req.scope) } });
+    const hasAccess = await prisma.assembly.findFirst({ where: { id: assemblyId, ...buildAssemblyScopeFilter(req.scope) } });
     if (!hasAccess) throw new ForbiddenError('You can only create offices within your assigned scope');
   }
 
-  const office = await prisma.office.create({ data: { name, address, districtId } });
+  const office = await prisma.office.create({ data: { name, address, assemblyId } });
 
   await logAudit({
     userId: req.user.userId,
@@ -438,16 +539,16 @@ const createOffice = asyncHandler(async (req, res) => {
 
 const updateOffice = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, address, districtId, isActive } = req.body;
+  const { name, address, assemblyId, isActive } = req.body;
 
   const existing = await prisma.office.findFirst({ where: { id, ...buildOfficeScopeFilter(req.scope) } });
   if (!existing) throw new NotFoundError('Office not found or access denied');
 
-  if (districtId) {
-    const district = await prisma.district.findUnique({ where: { id: districtId } });
-    if (!district) throw new ValidationError('districtId does not reference an existing district');
+  if (assemblyId) {
+    const assembly = await prisma.assembly.findUnique({ where: { id: assemblyId } });
+    if (!assembly) throw new ValidationError('assemblyId does not reference an existing assembly');
     if (!req.scope.isSuperAdmin) {
-      const hasAccess = await prisma.district.findFirst({ where: { id: districtId, ...buildDistrictScopeFilter(req.scope) } });
+      const hasAccess = await prisma.assembly.findFirst({ where: { id: assemblyId, ...buildAssemblyScopeFilter(req.scope) } });
       if (!hasAccess) throw new ForbiddenError('You can only assign offices to your assigned scope');
     }
   }
@@ -479,7 +580,7 @@ const updateOffice = asyncHandler(async (req, res) => {
     data: {
       ...(name !== undefined && { name }),
       ...(address !== undefined && { address }),
-      ...(districtId !== undefined && { districtId }),
+      ...(assemblyId !== undefined && { assemblyId }),
       ...(isActive !== undefined && { isActive }),
     },
   });
@@ -537,14 +638,18 @@ const getLocationTree = asyncHandler(async (req, res) => {
         orderBy: { name: 'asc' },
         select: {
           id: true, name: true, code: true,
-          offices: {
-            where: { ...buildOfficeScopeFilter(req.scope), isActive: true },
+          assemblies: {
+            where: { ...buildAssemblyScopeFilter(req.scope), isActive: true },
             orderBy: { name: 'asc' },
             select: {
-              id: true, name: true, address: true,
-              _count: { select: { cameras: true } },
-            },
-          },
+              id: true, name: true,
+              offices: {
+                where: { ...buildOfficeScopeFilter(req.scope), isActive: true },
+                orderBy: { name: 'asc' },
+                select: { id: true, name: true, address: true, _count: { select: { cameras: true } } }
+              }
+            }
+          }
         },
       },
     },
@@ -555,6 +660,7 @@ const getLocationTree = asyncHandler(async (req, res) => {
 module.exports = {
   getStates, getStateById, createState, updateState, deleteState,
   getDistricts, getDistrictById, createDistrict, updateDistrict, deleteDistrict,
+  getAssemblies, getAssemblyById, createAssembly, updateAssembly, deleteAssembly,
   getOffices, getOfficeById, createOffice, updateOffice, deleteOffice,
   getLocationTree,
 };

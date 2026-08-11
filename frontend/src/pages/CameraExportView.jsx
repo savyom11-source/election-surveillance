@@ -30,14 +30,8 @@ function VideoModal({ camera, onClose }) {
 export default function CameraExportView() {
   const { user } = useAuthStore();
 
-  const getStreamId = (hlsUrl) => {
-    if (!hlsUrl) return 'N/A';
-    try {
-      const url = new URL(hlsUrl);
-      return url.pathname.replace(/^\//, '').replace(/\/index\.m3u8$/, '');
-    } catch {
-      return 'N/A';
-    }
+  const getStreamId = (cam) => {
+    return cam.streamUrl || 'N/A';
   };
 
   const [cameras, setCameras] = useState([]);
@@ -55,10 +49,12 @@ export default function CameraExportView() {
   const [boothFilter, setBoothFilter] = useState('');
   const [selectedState, setSelectedState] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
+  const [selectedAssembly, setSelectedAssembly] = useState('');
   const [selectedOffice, setSelectedOffice] = useState('');
 
   const [states, setStates] = useState([]);
   const [districts, setDistricts] = useState([]);
+  const [assemblies, setAssemblies] = useState([]);
   const [offices, setOffices] = useState([]);
 
   useEffect(() => {
@@ -73,6 +69,7 @@ export default function CameraExportView() {
       if (placementFilter) params.placement = placementFilter;
       if (selectedState) params.stateId = selectedState;
       if (selectedDistrict) params.districtId = selectedDistrict;
+      if (selectedAssembly) params.assemblyId = selectedAssembly;
       if (selectedOffice) params.officeId = selectedOffice;
       if (prbhFilter) params.prbhNo = prbhFilter;
       if (boothFilter) params.boothNumber = boothFilter;
@@ -85,7 +82,7 @@ export default function CameraExportView() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, placementFilter, selectedState, selectedDistrict, selectedOffice, prbhFilter, boothFilter]);
+  }, [page, search, statusFilter, placementFilter, selectedState, selectedDistrict, selectedAssembly, selectedOffice, prbhFilter, boothFilter]);
 
   useEffect(() => {
     fetchCameras();
@@ -93,19 +90,30 @@ export default function CameraExportView() {
 
   async function handleStateChange(e) {
     const val = e.target.value;
-    setSelectedState(val); setSelectedDistrict(''); setSelectedOffice(''); setPage(1);
+    setSelectedState(val); setSelectedDistrict(''); setSelectedAssembly(''); setSelectedOffice(''); setPage(1);
     if (val) {
       const res = await locationsApi.getDistricts({ stateId: val });
       setDistricts(res.data.data);
     } else setDistricts([]);
+    setAssemblies([]);
     setOffices([]);
   }
 
   async function handleDistrictChange(e) {
     const val = e.target.value;
-    setSelectedDistrict(val); setSelectedOffice(''); setPage(1);
+    setSelectedDistrict(val); setSelectedAssembly(''); setSelectedOffice(''); setPage(1);
     if (val) {
-      const res = await locationsApi.getOffices({ districtId: val });
+      const res = await locationsApi.getAssemblies({ districtId: val });
+      setAssemblies(res.data.data);
+    } else setAssemblies([]);
+    setOffices([]);
+  }
+
+  async function handleAssemblyChange(e) {
+    const val = e.target.value;
+    setSelectedAssembly(val); setSelectedOffice(''); setPage(1);
+    if (val) {
+      const res = await locationsApi.getOffices({ assemblyId: val });
       setOffices(res.data.data);
     } else setOffices([]);
   }
@@ -119,6 +127,7 @@ export default function CameraExportView() {
       if (placementFilter) params.placement = placementFilter;
       if (selectedState) params.stateId = selectedState;
       if (selectedDistrict) params.districtId = selectedDistrict;
+      if (selectedAssembly) params.assemblyId = selectedAssembly;
       if (selectedOffice) params.officeId = selectedOffice;
       if (prbhFilter) params.prbhNo = prbhFilter;
       if (boothFilter) params.boothNumber = boothFilter;
@@ -133,8 +142,9 @@ export default function CameraExportView() {
 
       // Format strictly exactly as requested
       const excelData = allData.map(cam => ({
-        'State': cam.office?.district?.state?.name || 'N/A',
-        'District': cam.office?.district?.name || 'N/A',
+        'State': cam.office?.assembly?.district?.state?.name || 'N/A',
+        'District': cam.office?.assembly?.district?.name || 'N/A',
+        'AC Name / AC No': cam.office?.assembly?.name || 'N/A',
         'PRBH NO': cam.prbhNo || 'N/A',
         'Booth Number': cam.boothNumber || 'N/A',
         'Polling Station (P.S.) BUILDING_NAME_AND_ADDRESS': cam.office?.name || 'N/A',
@@ -142,7 +152,7 @@ export default function CameraExportView() {
         'Cloud ID': cam.cloudId || 'N/A',
         'IN/OUT': cam.placement === 'INSIDE' ? 'In' : cam.placement === 'OUTSIDE' ? 'Out' : 'N/A',
         'Protocol': cam.streamType || 'N/A',
-        'RTMP': getStreamId(cam.hlsUrl),
+        'Stream ID': getStreamId(cam),
         'Status': cam.status
       }));
 
@@ -182,8 +192,12 @@ export default function CameraExportView() {
           <option value="">All Districts</option>
           {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
-        <select className="form-input" style={{ width: 'auto' }} value={selectedOffice} onChange={(e) => { setSelectedOffice(e.target.value); setPage(1); }} disabled={!selectedDistrict}>
-          <option value="">All Assemblies (Offices)</option>
+        <select className="form-input" style={{ width: 'auto' }} value={selectedAssembly} onChange={handleAssemblyChange} disabled={!selectedDistrict}>
+          <option value="">All Assemblies</option>
+          {assemblies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+        <select className="form-input" style={{ width: 'auto' }} value={selectedOffice} onChange={(e) => { setSelectedOffice(e.target.value); setPage(1); }} disabled={!selectedAssembly}>
+          <option value="">All Polling Stations</option>
           {offices.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
         <select className="form-input" style={{ width: 'auto' }} value={placementFilter} onChange={(e) => { setPlacementFilter(e.target.value); setPage(1); }}>
@@ -229,6 +243,7 @@ export default function CameraExportView() {
                 <thead>
                   <tr>
                     <th>Assembly Name</th>
+                    <th>Polling Station</th>
                     <th>IN / OUT</th>
                     <th>Stream ID</th>
                     <th>Status</th>
@@ -241,6 +256,7 @@ export default function CameraExportView() {
                   )}
                   {cameras.map(cam => (
                     <tr key={cam.id}>
+                      <td style={{ fontWeight: 600, color: 'var(--text-bright)' }}>{cam.office?.assembly?.name || '—'}</td>
                       <td style={{ fontWeight: 600, color: 'var(--text-bright)' }}>{cam.office?.name || '—'}</td>
                       <td>
                         {cam.placement && (
@@ -250,7 +266,7 @@ export default function CameraExportView() {
                         )}
                       </td>
                       <td style={{ fontFamily: 'Share Tech Mono', fontSize: 11, color: 'var(--text-dim)' }}>
-                        {getStreamId(cam.hlsUrl)}
+                        {getStreamId(cam)}
                       </td>
                       <td>
                         <span className={`badge ${cam.status === 'ACTIVE' ? 'badge-green' : cam.status === 'INACTIVE' ? 'badge-red' : 'badge-yellow'}`}>

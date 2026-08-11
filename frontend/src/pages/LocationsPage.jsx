@@ -74,21 +74,71 @@ function OfficeRow({ office }) {
   );
 }
 
-function DistrictRow({ district }) {
+function AssemblyRow({ assembly }) {
   const [open, setOpen] = useState(false);
   const [offices, setOffices] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const { user } = useAuthStore();
+  const showAssemblyHeader = true; // Always show assembly header
+
+  async function toggle() {
+    if (!open && offices.length === 0) {
+      setLoading(true);
+      try {
+        const res = await locationsApi.getOffices({ assemblyId: assembly.id });
+        setOffices(res.data.data);
+      } catch { toast.error('Failed to load offices'); }
+      finally { setLoading(false); }
+    }
+    setOpen((o) => !o);
+  }
+
+  // Auto-expand if office observer
+  useEffect(() => {
+    if (user?.role === 'OFFICE_OBSERVER' && !open) {
+      toggle();
+    }
+  }, [user]);
+
+  return (
+    <div style={{ marginTop: 6 }}>
+      {showAssemblyHeader && (
+        <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 5, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface2)', transition: 'background 0.15s' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface3)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface2)'}>
+          {open ? <ChevronDown size={13} color="var(--accent)" /> : <ChevronRight size={13} color="var(--text-dim)" />}
+          <Building2 size={13} color="var(--accent3)" />
+          <span style={{ flex: 1, fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 14, color: 'var(--text-bright)' }}>{assembly.name}</span>
+          <span className="badge badge-orange" style={{ fontSize: 8 }}>{assembly._count?.offices || 0} polling stations</span>
+        </div>
+      )}
+      {(open || !showAssemblyHeader) && (
+        <div style={{ paddingLeft: showAssemblyHeader ? 24 : 0, marginTop: 4 }}>
+          {loading && <div style={{ display: 'flex', gap: 8, padding: 8, color: 'var(--text-dim)', fontSize: 12 }}><div className="spinner" style={{ width: 14, height: 14 }} /> Loading polling stations...</div>}
+          {!loading && offices.length === 0 && <p style={{ padding: 8, color: 'var(--text-dim)', fontFamily: 'Share Tech Mono', fontSize: 11 }}>No polling stations in this assembly</p>}
+          {offices.map((o) => <OfficeRow key={o.id} office={o} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DistrictRow({ district }) {
+  const [open, setOpen] = useState(false);
+  const [assemblies, setAssemblies] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const { user } = useAuthStore();
   const showDistrictHeader = user?.role !== 'OFFICE_OBSERVER';
 
   async function toggle() {
-    if (!open && offices.length === 0) {
+    if (!open && assemblies.length === 0) {
       setLoading(true);
       try {
-        const res = await locationsApi.getOffices({ districtId: district.id });
-        setOffices(res.data.data);
-      } catch { toast.error('Failed to load offices'); }
+        const res = await locationsApi.getAssemblies({ districtId: district.id });
+        setAssemblies(res.data.data);
+      } catch { toast.error('Failed to load assemblies'); }
       finally { setLoading(false); }
     }
     setOpen((o) => !o);
@@ -111,14 +161,14 @@ function DistrictRow({ district }) {
           <MapPin size={14} color="var(--accent2)" />
           <span style={{ flex: 1, fontFamily: 'Barlow Condensed', fontWeight: 700, fontSize: 15, color: 'var(--text-bright)' }}>{district.name}</span>
           <span className="badge badge-dim" style={{ fontSize: 8 }}>{district.code}</span>
-          <span className="badge badge-green" style={{ fontSize: 8 }}>{district._count?.offices || 0} offices</span>
+          <span className="badge badge-green" style={{ fontSize: 8 }}>{district._count?.assemblies || 0} assemblies</span>
         </div>
       )}
       {(open || !showDistrictHeader) && (
         <div style={{ paddingLeft: showDistrictHeader ? 28 : 0, marginTop: 4 }}>
-          {loading && <div style={{ display: 'flex', gap: 8, padding: 8, color: 'var(--text-dim)', fontSize: 12 }}><div className="spinner" style={{ width: 14, height: 14 }} /> Loading offices...</div>}
-          {!loading && offices.length === 0 && <p style={{ padding: 8, color: 'var(--text-dim)', fontFamily: 'Share Tech Mono', fontSize: 11 }}>No offices in this district</p>}
-          {offices.map((o) => <OfficeRow key={o.id} office={o} />)}
+          {loading && <div style={{ display: 'flex', gap: 8, padding: 8, color: 'var(--text-dim)', fontSize: 12 }}><div className="spinner" style={{ width: 14, height: 14 }} /> Loading assemblies...</div>}
+          {!loading && assemblies.length === 0 && <p style={{ padding: 8, color: 'var(--text-dim)', fontFamily: 'Share Tech Mono', fontSize: 11 }}>No assemblies in this district</p>}
+          {assemblies.map((a) => <AssemblyRow key={a.id} assembly={a} />)}
         </div>
       )}
     </div>
@@ -177,7 +227,7 @@ export default function LocationsPage() {
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontFamily: 'Share Tech Mono', fontSize: 11, color: 'var(--text-dim)', letterSpacing: 3, marginBottom: 4 }}>// LOCATION HIERARCHY</div>
         <h1 style={{ fontFamily: 'Barlow Condensed', fontWeight: 900, fontSize: 28, color: 'var(--text-bright)', textTransform: 'uppercase' }}>Location Browser</h1>
-        <p style={{ color: 'var(--text-dim)', fontSize: 13, marginTop: 4 }}>State → District → Office → Camera — click to expand</p>
+        <p style={{ color: 'var(--text-dim)', fontSize: 13, marginTop: 4 }}>State → District → Assembly → Polling Station → Camera — click to expand</p>
       </div>
 
       {loading && (

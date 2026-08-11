@@ -41,14 +41,20 @@ const getCameraStats = asyncHandler(async (req, res) => {
         select: {
           id: true,
           name: true,
-          district: {
+          assembly: {
             select: {
               id: true,
               name: true,
-              state: {
+              district: {
                 select: {
                   id: true,
-                  name: true
+                  name: true,
+                  state: {
+                    select: {
+                      id: true,
+                      name: true
+                    }
+                  }
                 }
               }
             }
@@ -62,10 +68,11 @@ const getCameraStats = asyncHandler(async (req, res) => {
   const stateMap = {};
 
   cameras.forEach(camera => {
-    if (!camera.office || !camera.office.district || !camera.office.district.state) return;
+    if (!camera.office || !camera.office.assembly || !camera.office.assembly.district || !camera.office.assembly.district.state) return;
     
-    const state = camera.office.district.state;
-    const district = camera.office.district;
+    const state = camera.office.assembly.district.state;
+    const district = camera.office.assembly.district;
+    const assembly = camera.office.assembly;
     const office = camera.office;
 
     if (!stateMap[state.id]) {
@@ -74,23 +81,37 @@ const getCameraStats = asyncHandler(async (req, res) => {
     stateMap[state.id].cameras.push(camera);
 
     if (!stateMap[state.id].districtMap[district.id]) {
-      stateMap[state.id].districtMap[district.id] = { id: district.id, name: district.name, cameras: [], officeMap: {} };
+      stateMap[state.id].districtMap[district.id] = { id: district.id, name: district.name, cameras: [], assemblyMap: {} };
     }
     stateMap[state.id].districtMap[district.id].cameras.push(camera);
 
-    if (!stateMap[state.id].districtMap[district.id].officeMap[office.id]) {
-      stateMap[state.id].districtMap[district.id].officeMap[office.id] = { id: office.id, name: office.name, cameras: [] };
+    if (!stateMap[state.id].districtMap[district.id].assemblyMap[assembly.id]) {
+      stateMap[state.id].districtMap[district.id].assemblyMap[assembly.id] = { id: assembly.id, name: assembly.name, cameras: [], officeMap: {} };
     }
-    stateMap[state.id].districtMap[district.id].officeMap[office.id].cameras.push(camera);
+    stateMap[state.id].districtMap[district.id].assemblyMap[assembly.id].cameras.push(camera);
+
+    if (!stateMap[state.id].districtMap[district.id].assemblyMap[assembly.id].officeMap[office.id]) {
+      stateMap[state.id].districtMap[district.id].assemblyMap[assembly.id].officeMap[office.id] = { id: office.id, name: office.name, cameras: [] };
+    }
+    stateMap[state.id].districtMap[district.id].assemblyMap[assembly.id].officeMap[office.id].cameras.push(camera);
   });
 
   const states = Object.values(stateMap).map(st => {
     const districts = Object.values(st.districtMap).map(dist => {
-      const offices = Object.values(dist.officeMap).map(off => {
+      const assemblies = Object.values(dist.assemblyMap).map(asm => {
+        const offices = Object.values(asm.officeMap).map(off => {
+          return {
+            id: off.id,
+            name: off.name,
+            stats: formatStats(off.cameras)
+          };
+        }).sort((a, b) => a.name.localeCompare(b.name));
+
         return {
-          id: off.id,
-          name: off.name,
-          stats: formatStats(off.cameras)
+          id: asm.id,
+          name: asm.name,
+          stats: formatStats(asm.cameras),
+          offices
         };
       }).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -98,7 +119,7 @@ const getCameraStats = asyncHandler(async (req, res) => {
         id: dist.id,
         name: dist.name,
         stats: formatStats(dist.cameras),
-        offices
+        assemblies
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
 

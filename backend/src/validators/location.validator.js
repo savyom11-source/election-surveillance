@@ -32,17 +32,29 @@ const updateDistrictSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+// ---- Assemblies ----
+const createAssemblySchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  districtId: uuid,
+});
+
+const updateAssemblySchema = z.object({
+  name: z.string().min(2).optional(),
+  districtId: uuid.optional(),
+  isActive: z.boolean().optional(),
+});
+
 // ---- Offices ----
 const createOfficeSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   address: z.string().optional(),
-  districtId: uuid,
+  assemblyId: uuid,
 });
 
 const updateOfficeSchema = z.object({
   name: z.string().min(2).optional(),
   address: z.string().optional(),
-  districtId: uuid.optional(),
+  assemblyId: uuid.optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -51,6 +63,8 @@ module.exports = {
   updateStateSchema,
   createDistrictSchema,
   updateDistrictSchema,
+  createAssemblySchema,
+  updateAssemblySchema,
   createOfficeSchema,
   updateOfficeSchema,
 };
