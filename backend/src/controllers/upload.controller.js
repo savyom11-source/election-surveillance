@@ -73,7 +73,7 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
       let cameraName     = getVal(['camera name', 'name']);
 
       if (!stateName || !districtName || !assemblyName || !officeName || !streamId) {
-        errors.push(`Row ${rowNum}: Missing required fields (State, District, Assembly, Office, or Stream ID)`);
+        errors.push(`Row ${rowNum}: Missing required fields. Headers: [${keys.join(', ')}]. Parsed: State="${stateName}", District="${districtName}", Assembly="${assemblyName}", Office="${officeName}", StreamID="${streamId}"`);
         continue;
       }
 

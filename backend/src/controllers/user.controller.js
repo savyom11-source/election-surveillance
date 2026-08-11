@@ -42,6 +42,25 @@ const userSelect = {
         select: {
           id: true,
           name: true,
+          assembly: {
+            select: {
+              id: true,
+              name: true,
+              district: {
+                select: {
+                  id: true,
+                  name: true,
+                  state: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+      },
+      assembly: {
+        select: {
+          id: true,
+          name: true,
           district: {
             select: {
               id: true,
@@ -78,6 +97,12 @@ async function validateScopeIdsExist(scope) {
       throw new ValidationError('One or more districtIds in scope do not exist');
     }
   }
+  if (scope.assemblyIds?.length) {
+    const count = await prisma.assembly.count({ where: { id: { in: scope.assemblyIds } } });
+    if (count !== scope.assemblyIds.length) {
+      throw new ValidationError('One or more assemblyIds in scope do not exist');
+    }
+  }
   if (officeIds.length) {
     const count = await prisma.office.count({ where: { id: { in: officeIds } } });
     if (count !== officeIds.length) {
@@ -95,6 +120,8 @@ function scopeToCreateData(scope, userId, role) {
     for (const stateId of scope.stateIds || []) rows.push({ userId, stateId });
   } else if (role === 'DISTRICT_OBSERVER') {
     for (const districtId of scope.districtIds || []) rows.push({ userId, districtId });
+  } else if (role === 'ASSEMBLY_OBSERVER') {
+    for (const assemblyId of scope.assemblyIds || []) rows.push({ userId, assemblyId });
   } else if (role === 'OFFICE_OBSERVER') {
     for (const officeId of scope.officeIds || []) rows.push({ userId, officeId });
   }
@@ -107,7 +134,7 @@ async function validateScopeSubservience(req, targetRole, targetScope) {
     throw new ForbiddenError('You cannot create or assign Super Admin or State Admin roles');
   }
 
-  const { stateIds = [], districtIds = [], officeIds = [] } = targetScope || {};
+  const { stateIds = [], districtIds = [], assemblyIds = [], officeIds = [] } = targetScope || {};
 
   for (const sid of stateIds) {
     if (!req.scope.stateIds.includes(sid)) {
@@ -124,10 +151,19 @@ async function validateScopeSubservience(req, targetRole, targetScope) {
     }
   }
 
+  if (assemblyIds.length) {
+    const assemblies = await prisma.assembly.findMany({ where: { id: { in: assemblyIds } }, include: { district: true } });
+    for (const a of assemblies) {
+      if (!req.scope.stateIds.includes(a.district.stateId)) {
+         throw new ForbiddenError(`You do not have access to assign assembly ID ${a.id}`);
+      }
+    }
+  }
+
   if (officeIds.length) {
-    const offices = await prisma.office.findMany({ where: { id: { in: officeIds } }, include: { district: true } });
+    const offices = await prisma.office.findMany({ where: { id: { in: officeIds } }, include: { assembly: { include: { district: true } } } });
     for (const o of offices) {
-      if (!req.scope.stateIds.includes(o.district.stateId)) {
+      if (!req.scope.stateIds.includes(o.assembly.district.stateId)) {
          throw new ForbiddenError(`You do not have access to assign office ID ${o.id}`);
       }
     }
@@ -145,7 +181,8 @@ async function checkUserAccess(req, targetUserId) {
     where: { userId: targetUserId },
     include: {
       district: true,
-      office: { include: { district: true } }
+      assembly: { include: { district: true } },
+      office: { include: { assembly: { include: { district: true } } } }
     }
   });
 
@@ -154,7 +191,8 @@ async function checkUserAccess(req, targetUserId) {
   for (const s of scopes) {
     if (s.stateId && !req.scope.stateIds.includes(s.stateId)) return false;
     if (s.districtId && !req.scope.stateIds.includes(s.district.stateId)) return false;
-    if (s.officeId && !req.scope.stateIds.includes(s.office.district.stateId)) return false;
+    if (s.assemblyId && !req.scope.stateIds.includes(s.assembly.district.stateId)) return false;
+    if (s.officeId && !req.scope.stateIds.includes(s.office.assembly.district.stateId)) return false;
   }
   return true;
 }
@@ -222,7 +260,7 @@ const getUsers = asyncHandler(async (req, res) => {
   const where = {};
 
   if (role) {
-    if (!['SUPER_ADMIN', 'STATE_ADMIN', 'DISTRICT_OBSERVER', 'OFFICE_OBSERVER'].includes(role)) {
+    if (!['SUPER_ADMIN', 'STATE_ADMIN', 'DISTRICT_OBSERVER', 'ASSEMBLY_OBSERVER', 'OFFICE_OBSERVER'].includes(role)) {
       throw new ValidationError(`Invalid role filter: ${role}`);
     }
     where.role = role;
@@ -246,7 +284,8 @@ const getUsers = asyncHandler(async (req, res) => {
         OR: [
           { stateId: { in: req.scope.stateIds } },
           { district: { stateId: { in: req.scope.stateIds } } },
-          { office: { district: { stateId: { in: req.scope.stateIds } } } }
+          { assembly: { district: { stateId: { in: req.scope.stateIds } } } },
+          { office: { assembly: { district: { stateId: { in: req.scope.stateIds } } } } }
         ]
       }
     };
