@@ -25,13 +25,19 @@ async function main() {
   });
   console.log(`✅ District: ${kota.name}`);
 
+  const kotaNorth = await prisma.assembly.upsert({
+    where: { id: 'seed-assembly-001' }, update: {},
+    create: { id: 'seed-assembly-001', name: 'Kota North', districtId: kota.id, isActive: true },
+  });
+  console.log(`✅ Assembly: ${kotaNorth.name}`);
+
   const office1 = await prisma.office.upsert({
     where: { id: 'seed-office-001' }, update: {},
-    create: { id: 'seed-office-001', name: 'Kota North Polling Station', address: 'Ward 1, Kota North, Rajasthan', districtId: kota.id, isActive: true },
+    create: { id: 'seed-office-001', name: 'Kota North Polling Station', address: 'Ward 1, Kota North, Rajasthan', assemblyId: kotaNorth.id, isActive: true },
   });
   const office2 = await prisma.office.upsert({
     where: { id: 'seed-office-002' }, update: {},
-    create: { id: 'seed-office-002', name: 'Kota South Polling Station', address: 'Ward 5, Kota South, Rajasthan', districtId: kota.id, isActive: true },
+    create: { id: 'seed-office-002', name: 'Kota South Polling Station', address: 'Ward 5, Kota South, Rajasthan', assemblyId: kotaNorth.id, isActive: true },
   });
   console.log(`✅ Offices: ${office1.name}, ${office2.name}`);
 

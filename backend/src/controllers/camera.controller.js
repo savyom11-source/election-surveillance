@@ -24,11 +24,9 @@ const { buildCameraScopeFilter, checkCameraAccess } = require('../middleware/rba
 // - Strip streamUrl (internal only)
 // - Add generated hlsUrl
 function formatCamera(camera) {
-  const { streamUrl, ...rest } = camera;
   return {
-    ...rest,
-    hlsUrl:     generateHlsUrl(streamUrl),
-    // Include streamType so frontend knows what kind of stream it is
+    ...camera,
+    hlsUrl: generateHlsUrl(camera.streamUrl),
   };
 }
 
@@ -68,18 +66,21 @@ const getCameras = asyncHandler(async (req, res) => {
   const validStatuses = ['ACTIVE', 'INACTIVE', 'NOT_CONNECTED'];
   const isValidStatus = status && validStatuses.includes(status.toUpperCase());
 
+  const locationFilters = [];
+  if (officeId) locationFilters.push({ officeId });
+  if (assemblyId) locationFilters.push({ office: { assemblyId } });
+  if (districtId) locationFilters.push({ office: { assembly: { districtId } } });
+  if (stateId) locationFilters.push({ office: { assembly: { district: { stateId } } } });
+
   const where = {
     ...buildCameraScopeFilter(req.scope),
     ...(isActive !== undefined ? { isActive: isActive === 'true' } : { isActive: true }),
     ...(isValidStatus && { status: status.toUpperCase() }),
     ...(placement  && { placement }),
-    ...(officeId   && { officeId }),
-    ...(assemblyId && { office: { assemblyId } }),
-    ...(districtId && { office: { assembly: { districtId } } }),
-    ...(stateId    && { office: { assembly: { district: { stateId } } } }),
     ...(streamId   && { streamUrl: { contains: streamId, mode: 'insensitive' } }),
     ...(prbhNo     && { prbhNo: { contains: prbhNo, mode: 'insensitive' } }),
     ...(boothNumber&& { boothNumber: { contains: boothNumber, mode: 'insensitive' } }),
+    ...(locationFilters.length > 0 && { AND: locationFilters }),
   };
 
   const allCameras = await prisma.camera.findMany({
