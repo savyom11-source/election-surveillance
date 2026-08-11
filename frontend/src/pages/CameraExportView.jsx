@@ -31,7 +31,13 @@ export default function CameraExportView() {
   const { user } = useAuthStore();
 
   const getStreamId = (cam) => {
-    return cam.streamUrl || 'N/A';
+    if (!cam.streamUrl) return 'N/A';
+    try {
+      const url = new URL(cam.streamUrl);
+      return url.pathname.replace(/^\//, '');
+    } catch {
+      return cam.streamUrl.split('/').slice(-2).join('/');
+    }
   };
 
   const [cameras, setCameras] = useState([]);

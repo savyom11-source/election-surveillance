@@ -13,6 +13,7 @@ const ROLE_INFO = {
   SUPER_ADMIN:       { label: 'Super Admin',       badge: 'badge-yellow' },
   STATE_ADMIN:       { label: 'State Admin',        badge: 'badge-blue'   },
   DISTRICT_OBSERVER: { label: 'District Observer',  badge: 'badge-green'  },
+  ASSEMBLY_OBSERVER: { label: 'Assembly Observer',  badge: 'badge-orange' },
   OFFICE_OBSERVER:   { label: 'Office Observer',    badge: 'badge-dim'    },
 };
 
@@ -31,10 +32,11 @@ function Modal({ title, onClose, children }) {
 }
 
 function CreateUserModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'OFFICE_OBSERVER', scope: { stateIds: [], districtIds: [], officeIds: [] } });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'OFFICE_OBSERVER', scope: { stateIds: [], districtIds: [], assemblyIds: [], officeIds: [] } });
   const [loading, setLoading] = useState(false);
   const [states, setStates] = useState([]);
   const [districts, setDistricts] = useState([]);
+  const [assemblies, setAssemblies] = useState([]);
   const [offices, setOffices] = useState([]);
   const { user } = useAuthStore();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
@@ -45,19 +47,30 @@ function CreateUserModal({ onClose, onCreated }) {
 
   async function handleStateChange(e) {
     const stateId = e.target.value;
-    set('scope', { stateIds: stateId ? [stateId] : [], districtIds: [], officeIds: [] });
+    set('scope', { stateIds: stateId ? [stateId] : [], districtIds: [], assemblyIds: [], officeIds: [] });
     if (stateId) {
       const res = await locationsApi.getDistricts({ stateId });
       setDistricts(res.data.data);
     } else setDistricts([]);
+    setAssemblies([]);
     setOffices([]);
   }
 
   async function handleDistrictChange(e) {
     const districtId = e.target.value;
-    set('scope', { ...form.scope, districtIds: districtId ? [districtId] : [], officeIds: [] });
+    set('scope', { ...form.scope, districtIds: districtId ? [districtId] : [], assemblyIds: [], officeIds: [] });
     if (districtId) {
-      const res = await locationsApi.getOffices({ districtId });
+      const res = await locationsApi.getAssemblies({ districtId });
+      setAssemblies(res.data.data);
+    } else setAssemblies([]);
+    setOffices([]);
+  }
+
+  async function handleAssemblyChange(e) {
+    const assemblyId = e.target.value;
+    set('scope', { ...form.scope, assemblyIds: assemblyId ? [assemblyId] : [], officeIds: [] });
+    if (assemblyId) {
+      const res = await locationsApi.getOffices({ assemblyId });
       setOffices(res.data.data);
     } else setOffices([]);
   }
@@ -123,6 +136,35 @@ function CreateUserModal({ onClose, onCreated }) {
                 <option value="">Select District</option>
                 {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
+            </div>
+          )}
+          {['ASSEMBLY_OBSERVER', 'OFFICE_OBSERVER'].includes(form.role) && assemblies.length > 0 && (
+            <div className="form-group">
+              <label className="form-label">Assembly{form.role === 'ASSEMBLY_OBSERVER' ? ' (Select multiple)' : ''}</label>
+              {form.role === 'ASSEMBLY_OBSERVER' ? (
+                <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 5, padding: 8, background: 'var(--surface)' }}>
+                  {assemblies.map((a) => (
+                    <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
+                      <input type="checkbox" 
+                        style={{ accentColor: 'var(--accent)' }}
+                        checked={(form.scope.assemblyIds || []).includes(a.id)}
+                        onChange={(e) => {
+                          const newIds = e.target.checked 
+                            ? [...(form.scope.assemblyIds || []), a.id]
+                            : (form.scope.assemblyIds || []).filter(id => id !== a.id);
+                          set('scope', { ...form.scope, assemblyIds: newIds });
+                        }}
+                      />
+                      {a.name}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <select className="form-input" onChange={handleAssemblyChange}>
+                  <option value="">Select Assembly</option>
+                  {assemblies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              )}
             </div>
           )}
           {form.role === 'OFFICE_OBSERVER' && offices.length > 0 && (
@@ -269,7 +311,7 @@ export default function AdminUsersPage() {
                       {u.role === 'SUPER_ADMIN' ? <span className="badge badge-yellow">All Access</span>
                         : u.userScopes.length === 0 ? <span className="badge badge-red">No Scope</span>
                         : u.userScopes.slice(0, 2).map((s, i) => (
-                          <div key={i} style={{ fontSize: 10 }}>{s.state?.name || s.district?.name || s.office?.name || '—'}</div>
+                          <div key={i} style={{ fontSize: 10 }}>{s.state?.name || s.district?.name || s.assembly?.name || s.office?.name || '—'}</div>
                         ))}
                     </td>
                     <td style={{ fontFamily: 'Share Tech Mono', fontSize: 10, color: 'var(--text-dim)' }}>

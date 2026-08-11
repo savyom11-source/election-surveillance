@@ -5,7 +5,7 @@
 const { z } = require('zod');
 const { ValidationError } = require('../utils/errors');
 
-const ROLES = ['SUPER_ADMIN', 'STATE_ADMIN', 'DISTRICT_OBSERVER', 'OFFICE_OBSERVER'];
+const ROLES = ['SUPER_ADMIN', 'STATE_ADMIN', 'DISTRICT_OBSERVER', 'ASSEMBLY_OBSERVER', 'OFFICE_OBSERVER'];
 
 const uuid = z.string().uuid('Invalid ID format');
 
@@ -13,9 +13,10 @@ const scopeSchema = z
   .object({
     stateIds: z.array(uuid).default([]),
     districtIds: z.array(uuid).default([]),
+    assemblyIds: z.array(uuid).default([]),
     officeIds: z.array(uuid).default([]),
   })
-  .default({ stateIds: [], districtIds: [], officeIds: [] });
+  .default({ stateIds: [], districtIds: [], assemblyIds: [], officeIds: [] });
 
 /**
  * Cross-field check: non-super-admin roles must have at least one
@@ -36,6 +37,13 @@ function checkScopeForRole(data, ctx) {
       code: z.ZodIssueCode.custom,
       message: 'DISTRICT_OBSERVER requires at least one districtId in scope',
       path: ['scope', 'districtIds'],
+    });
+  }
+  if (role === 'ASSEMBLY_OBSERVER' && scope.assemblyIds.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'ASSEMBLY_OBSERVER requires at least one assemblyId in scope',
+      path: ['scope', 'assemblyIds'],
     });
   }
   if (role === 'OFFICE_OBSERVER' && scope.officeIds.length === 0) {
