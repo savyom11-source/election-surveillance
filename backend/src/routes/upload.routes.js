@@ -27,7 +27,7 @@ const upload = multer({
 
 router.use(authenticate);
 
-// Only SUPER_ADMIN can perform bulk uploads
-router.post('/cameras', (req, res, next) => rbac.requireRole('SUPER_ADMIN')(req, res, next), upload.single('file'), uploadController.bulkUploadCameras);
+// Only SUPER_ADMIN and STATE_ADMIN can perform bulk uploads
+router.post('/cameras', (req, res, next) => rbac.requireRole('SUPER_ADMIN', 'STATE_ADMIN')(req, res, next), rbac.loadUserScope, upload.single('file'), uploadController.bulkUploadCameras);
 
 module.exports = router;

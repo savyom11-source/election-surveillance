@@ -87,9 +87,18 @@ const bulkUploadCameras = asyncHandler(async (req, res) => {
         where: { name: { equals: stateName, mode: 'insensitive' } }
       });
       if (!state) {
+        if (!req.scope.isSuperAdmin) {
+          errors.push(`Row ${rowNum}: You do not have permission to create a new State ("${stateName}").`);
+          continue;
+        }
         state = await prisma.state.create({
           data: { name: stateName, code: generateCode(stateName) }
         });
+      } else {
+        if (!req.scope.isSuperAdmin && !req.scope.stateIds.includes(state.id)) {
+          errors.push(`Row ${rowNum}: You do not have permission to upload cameras for State "${stateName}".`);
+          continue;
+        }
       }
 
       // Upsert District

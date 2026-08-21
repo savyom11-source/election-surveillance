@@ -156,7 +156,7 @@ export default function StatsPage() {
       {showBreakdown && (
         <div className="flex flex-col gap-8">
           {states.map(state => {
-            const showStateHeader = user?.role === 'SUPER_ADMIN' || user?.role === 'STATE_ADMIN';
+            const showStateHeader = ['SUPER_ADMIN', 'STATE_ADMIN'].includes(user?.role);
             return (
               <div key={state.id} className={showStateHeader ? "bg-dark-800/20 border border-dark-600 rounded-xl p-6" : ""}>
                 
@@ -169,7 +169,7 @@ export default function StatsPage() {
 
                 <div className={`flex flex-col gap-6 ${showStateHeader ? 'pl-4' : ''}`}>
                   {state.districts.map(district => {
-                    const showDistrictHeader = user?.role !== 'OFFICE_OBSERVER';
+                    const showDistrictHeader = ['SUPER_ADMIN', 'STATE_ADMIN', 'DISTRICT_OBSERVER'].includes(user?.role);
                     return (
                       <div key={district.id} className={showDistrictHeader && showStateHeader ? "border-l-2 border-dark-600 pl-6" : ""}>
                         
@@ -180,20 +180,25 @@ export default function StatsPage() {
                           </div>
                         )}
 
-                        <div className="flex flex-col gap-6 mt-4 pl-4">
-                          {district.assemblies.map(assembly => (
-                            <div key={assembly.id} className="border-l-2 border-dark-600 pl-6">
-                              <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-md font-semibold text-slate-300 uppercase tracking-wide">{assembly.name} Assembly</h4>
-                                <MiniStats stats={assembly.stats} />
-                              </div>
+                        <div className={`flex flex-col gap-6 mt-4 ${showDistrictHeader ? 'pl-4' : ''}`}>
+                          {district.assemblies.map(assembly => {
+                            const showAssemblyHeader = ['SUPER_ADMIN', 'STATE_ADMIN', 'DISTRICT_OBSERVER', 'ASSEMBLY_OBSERVER'].includes(user?.role);
+                            return (
+                            <div key={assembly.id} className={showAssemblyHeader && (showDistrictHeader || showStateHeader) ? "border-l-2 border-dark-600 pl-6" : ""}>
+                              {showAssemblyHeader && (
+                                <div className="flex items-center justify-between mb-4">
+                                  <h4 className="text-md font-semibold text-slate-300 uppercase tracking-wide">{assembly.name} Assembly</h4>
+                                  <MiniStats stats={assembly.stats} />
+                                </div>
+                              )}
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {assembly.offices.map(office => (
-                                  <RegionCard key={office.id} region={office} />
-                                ))}
+                                  {assembly.offices.map(office => (
+                                    <RegionCard key={office.id} region={office} />
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );

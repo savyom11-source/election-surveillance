@@ -63,9 +63,72 @@ export default function CameraExportView() {
   const [assemblies, setAssemblies] = useState([]);
   const [offices, setOffices] = useState([]);
 
+  // Role-based locking
+  const isStateLocked = ['STATE_ADMIN', 'DISTRICT_OBSERVER', 'ASSEMBLY_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
+  const isDistrictLocked = ['DISTRICT_OBSERVER', 'ASSEMBLY_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
+  const isAssemblyLocked = ['ASSEMBLY_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
+  const isOfficeLocked = ['OFFICE_OBSERVER'].includes(user?.role);
+
   useEffect(() => {
-    locationsApi.getStates().then(r => setStates(r.data.data)).catch(() => {});
-  }, []);
+    locationsApi.getStates().then((r) => {
+      const fetched = r.data.data;
+      setStates(fetched);
+      if (fetched.length === 1 && isStateLocked) {
+        setSelectedState(fetched[0].id);
+      }
+    }).catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedState) {
+      locationsApi.getDistricts({ stateId: selectedState }).then((r) => {
+        const fetched = r.data.data;
+        setDistricts(fetched);
+        if (fetched.length === 1 && isDistrictLocked) {
+          setSelectedDistrict(fetched[0].id);
+        }
+      }).catch(() => {});
+    } else {
+      setDistricts([]);
+      setSelectedDistrict('');
+      setAssemblies([]);
+      setSelectedAssembly('');
+      setOffices([]);
+      setSelectedOffice('');
+    }
+  }, [selectedState]);
+
+  useEffect(() => {
+    if (selectedDistrict) {
+      locationsApi.getAssemblies({ districtId: selectedDistrict }).then((r) => {
+        const fetched = r.data.data;
+        setAssemblies(fetched);
+        if (fetched.length === 1 && isAssemblyLocked) {
+          setSelectedAssembly(fetched[0].id);
+        }
+      }).catch(() => {});
+    } else {
+      setAssemblies([]);
+      setSelectedAssembly('');
+      setOffices([]);
+      setSelectedOffice('');
+    }
+  }, [selectedDistrict]);
+
+  useEffect(() => {
+    if (selectedAssembly) {
+      locationsApi.getOffices({ assemblyId: selectedAssembly }).then((r) => {
+        const fetched = r.data.data;
+        setOffices(fetched);
+        if (fetched.length === 1 && isOfficeLocked) {
+          setSelectedOffice(fetched[0].id);
+        }
+      }).catch(() => {});
+    } else {
+      setOffices([]);
+      setSelectedOffice('');
+    }
+  }, [selectedAssembly]);
 
   const fetchCameras = useCallback(async () => {
     setLoading(true);
@@ -94,35 +157,7 @@ export default function CameraExportView() {
     fetchCameras();
   }, [fetchCameras]);
 
-  async function handleStateChange(e) {
-    const val = e.target.value;
-    setSelectedState(val); setSelectedDistrict(''); setSelectedAssembly(''); setSelectedOffice(''); setPage(1);
-    if (val) {
-      const res = await locationsApi.getDistricts({ stateId: val });
-      setDistricts(res.data.data);
-    } else setDistricts([]);
-    setAssemblies([]);
-    setOffices([]);
-  }
-
-  async function handleDistrictChange(e) {
-    const val = e.target.value;
-    setSelectedDistrict(val); setSelectedAssembly(''); setSelectedOffice(''); setPage(1);
-    if (val) {
-      const res = await locationsApi.getAssemblies({ districtId: val });
-      setAssemblies(res.data.data);
-    } else setAssemblies([]);
-    setOffices([]);
-  }
-
-  async function handleAssemblyChange(e) {
-    const val = e.target.value;
-    setSelectedAssembly(val); setSelectedOffice(''); setPage(1);
-    if (val) {
-      const res = await locationsApi.getOffices({ assemblyId: val });
-      setOffices(res.data.data);
-    } else setOffices([]);
-  }
+  // Removed redundant handlers, replaced with inline handlers
 
   async function handleExport() {
     setExporting(true);
@@ -190,22 +225,28 @@ export default function CameraExportView() {
 
       {/* Filters Bar */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-        <select className="form-input" style={{ width: 'auto' }} value={selectedState} onChange={handleStateChange}>
+        <select className="form-input" style={{ width: 'auto' }} value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setSelectedDistrict(''); setSelectedAssembly(''); setSelectedOffice(''); setPage(1); }} disabled={isStateLocked}>
           <option value="">All States</option>
           {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-        <select className="form-input" style={{ width: 'auto' }} value={selectedDistrict} onChange={handleDistrictChange} disabled={!selectedState}>
-          <option value="">All Districts</option>
-          {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
-        <select className="form-input" style={{ width: 'auto' }} value={selectedAssembly} onChange={handleAssemblyChange} disabled={!selectedDistrict}>
-          <option value="">All Assemblies</option>
-          {assemblies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-        <select className="form-input" style={{ width: 'auto' }} value={selectedOffice} onChange={(e) => { setSelectedOffice(e.target.value); setPage(1); }} disabled={!selectedAssembly}>
-          <option value="">All Polling Stations</option>
-          {offices.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-        </select>
+        {districts.length > 0 && (
+          <select className="form-input" style={{ width: 'auto' }} value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedAssembly(''); setSelectedOffice(''); setPage(1); }} disabled={isDistrictLocked}>
+            <option value="">All Districts</option>
+            {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        )}
+        {assemblies.length > 0 && (
+          <select className="form-input" style={{ width: 'auto' }} value={selectedAssembly} onChange={(e) => { setSelectedAssembly(e.target.value); setSelectedOffice(''); setPage(1); }} disabled={isAssemblyLocked}>
+            <option value="">All Assemblies</option>
+            {assemblies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        )}
+        {offices.length > 0 && (
+          <select className="form-input" style={{ width: 'auto' }} value={selectedOffice} onChange={(e) => { setSelectedOffice(e.target.value); setPage(1); }} disabled={isOfficeLocked}>
+            <option value="">All Polling Stations</option>
+            {offices.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
+        )}
         <select className="form-input" style={{ width: 'auto' }} value={placementFilter} onChange={(e) => { setPlacementFilter(e.target.value); setPage(1); }}>
           <option value="">All Placements</option>
           <option value="INSIDE">Inside (IN)</option>
@@ -229,7 +270,7 @@ export default function CameraExportView() {
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
           <input className="form-input" style={{ paddingLeft: 36 }} placeholder="Search camera or stream ID..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         </div>
-        {user?.role === 'SUPER_ADMIN' && (
+        {(user?.role === 'SUPER_ADMIN' || user?.role === 'STATE_ADMIN') && (
           <button className="btn btn-primary" onClick={handleExport} disabled={exporting || loading}>
             <Download size={14} /> {exporting ? 'Exporting...' : 'Export .xlsx'}
           </button>

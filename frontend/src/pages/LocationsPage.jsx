@@ -80,7 +80,7 @@ function AssemblyRow({ assembly }) {
   const [loading, setLoading] = useState(false);
 
   const { user } = useAuthStore();
-  const showAssemblyHeader = true; // Always show assembly header
+  const showAssemblyHeader = ['SUPER_ADMIN', 'STATE_ADMIN', 'DISTRICT_OBSERVER', 'ASSEMBLY_OBSERVER'].includes(user?.role);
 
   async function toggle() {
     if (!open && offices.length === 0) {
@@ -130,7 +130,7 @@ function DistrictRow({ district }) {
   const [loading, setLoading] = useState(false);
 
   const { user } = useAuthStore();
-  const showDistrictHeader = user?.role !== 'OFFICE_OBSERVER';
+  const showDistrictHeader = ['SUPER_ADMIN', 'STATE_ADMIN', 'DISTRICT_OBSERVER'].includes(user?.role);
 
   async function toggle() {
     if (!open && assemblies.length === 0) {
@@ -183,7 +183,7 @@ export default function LocationsPage() {
   const [loading, setLoading] = useState(true);
 
   const { user } = useAuthStore();
-  const showStateHeader = user?.role === 'SUPER_ADMIN' || user?.role === 'STATE_ADMIN';
+  const showStateHeader = ['SUPER_ADMIN', 'STATE_ADMIN'].includes(user?.role);
 
   useEffect(() => {
     locationsApi.getStates()

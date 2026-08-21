@@ -44,8 +44,9 @@ export default function Dashboard({ isStandalone = false }) {
   const user = useAuthStore(state => state.user);
   
   // Helper booleans for role-based locking
-  const isStateLocked = ['STATE_ADMIN', 'DISTRICT_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
-  const isDistrictLocked = ['DISTRICT_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
+  const isStateLocked = ['STATE_ADMIN', 'DISTRICT_OBSERVER', 'ASSEMBLY_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
+  const isDistrictLocked = ['DISTRICT_OBSERVER', 'ASSEMBLY_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
+  const isAssemblyLocked = ['ASSEMBLY_OBSERVER', 'OFFICE_OBSERVER'].includes(user?.role);
   const isOfficeLocked = ['OFFICE_OBSERVER'].includes(user?.role);
 
   // Derived limit from grid layout
@@ -85,14 +86,15 @@ export default function Dashboard({ isStandalone = false }) {
 
   // Auto-rotation timer
   useEffect(() => {
-    if (!autoRotate || !pagination || pagination.totalPages <= 1) return;
+    // Pause rotation if autoRotate is off, pagination is incomplete, or a camera is currently zoomed (expanded)
+    if (!autoRotate || !pagination || pagination.totalPages <= 1 || expandedCamera) return;
     
     const timer = setInterval(() => {
       setPage(prev => (prev >= pagination.totalPages ? 1 : prev + 1));
     }, rotateInterval);
     
     return () => clearInterval(timer);
-  }, [autoRotate, rotateInterval, pagination]);
+  }, [autoRotate, rotateInterval, pagination, expandedCamera]);
 
   // Background polling for camera statuses (syncing across systems)
   useEffect(() => {
@@ -110,41 +112,42 @@ export default function Dashboard({ isStandalone = false }) {
 
   useEffect(() => {
     locationsApi.getStates().then((r) => {
-      const fetchedStates = r.data.data;
-      setStates(fetchedStates);
-      if (fetchedStates.length === 1 && isStateLocked) {
-        setSelectedState(fetchedStates[0].id);
+      const fetched = r.data.data;
+      setStates(fetched);
+      if (fetched.length === 1 && isStateLocked) {
+        setSelectedState(fetched[0].id);
       }
     }).catch(() => {});
   }, [user]);
 
   useEffect(() => {
     if (selectedState) {
-      locationsApi.getDistricts({ stateId: selectedState })
-        .then((r) => {
-          const fetchedDistricts = r.data.data;
-          setDistricts(fetchedDistricts);
-          if (fetchedDistricts.length === 1 && isDistrictLocked) {
-            setSelectedDistrict(fetchedDistricts[0].id);
-          }
-        })
-        .catch(() => {});
+      locationsApi.getDistricts({ stateId: selectedState }).then((r) => {
+        const fetched = r.data.data;
+        setDistricts(fetched);
+        if (fetched.length === 1 && isDistrictLocked) {
+          setSelectedDistrict(fetched[0].id);
+        }
+      }).catch(() => {});
     } else {
       setDistricts([]);
       setSelectedDistrict('');
+      setAssemblies([]);
+      setSelectedAssembly('');
       setOffices([]);
       setSelectedOffice('');
     }
-  }, [selectedState, isDistrictLocked]);
+  }, [selectedState]);
 
   useEffect(() => {
     if (selectedDistrict) {
-      locationsApi.getAssemblies({ districtId: selectedDistrict })
-        .then((r) => {
-          const fetchedAssemblies = r.data.data;
-          setAssemblies(fetchedAssemblies);
-        })
-        .catch(() => {});
+      locationsApi.getAssemblies({ districtId: selectedDistrict }).then((r) => {
+        const fetched = r.data.data;
+        setAssemblies(fetched);
+        if (fetched.length === 1 && isAssemblyLocked) {
+          setSelectedAssembly(fetched[0].id);
+        }
+      }).catch(() => {});
     } else {
       setAssemblies([]);
       setSelectedAssembly('');
@@ -155,20 +158,18 @@ export default function Dashboard({ isStandalone = false }) {
 
   useEffect(() => {
     if (selectedAssembly) {
-      locationsApi.getOffices({ assemblyId: selectedAssembly })
-        .then((r) => {
-          const fetchedOffices = r.data.data;
-          setOffices(fetchedOffices);
-          if (fetchedOffices.length === 1 && isOfficeLocked) {
-            setSelectedOffice(fetchedOffices[0].id);
-          }
-        })
-        .catch(() => {});
+      locationsApi.getOffices({ assemblyId: selectedAssembly }).then((r) => {
+        const fetched = r.data.data;
+        setOffices(fetched);
+        if (fetched.length === 1 && isOfficeLocked) {
+          setSelectedOffice(fetched[0].id);
+        }
+      }).catch(() => {});
     } else {
       setOffices([]);
       setSelectedOffice('');
     }
-  }, [selectedAssembly, isOfficeLocked]);
+  }, [selectedAssembly]);
 
   useEffect(() => { fetchCameras(); }, [fetchCameras]);
 
@@ -312,26 +313,27 @@ export default function Dashboard({ isStandalone = false }) {
               <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
                 value={selectedDistrict} onChange={(e) => { setSelectedDistrict(e.target.value); setSelectedAssembly(''); setSelectedOffice(''); setPage(1); }}
                 disabled={isDistrictLocked}>
-              <option value="">All Districts</option>
-              {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+                <option value="">All Districts</option>
+                {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
             )}
 
             {assemblies.length > 0 && (
               <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
-                value={selectedAssembly} onChange={(e) => { setSelectedAssembly(e.target.value); setSelectedOffice(''); setPage(1); }}>
-              <option value="">All Assemblies</option>
-              {assemblies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+                value={selectedAssembly} onChange={(e) => { setSelectedAssembly(e.target.value); setSelectedOffice(''); setPage(1); }}
+                disabled={isAssemblyLocked}>
+                <option value="">All Assemblies</option>
+                {assemblies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
             )}
 
             {offices.length > 0 && (
               <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
                 value={selectedOffice} onChange={(e) => { setSelectedOffice(e.target.value); setPage(1); }}
                 disabled={isOfficeLocked}>
-              <option value="">All Polling Stations</option>
-              {offices.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+                <option value="">All Polling Stations</option>
+                {offices.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
             )}
 
             <select className="form-input" style={{ width: 'auto', padding: '6px 12px', fontSize: 12 }}
@@ -353,8 +355,9 @@ export default function Dashboard({ isStandalone = false }) {
               <button className="btn btn-ghost btn-sm" onClick={() => { 
                 if (!isStateLocked) setSelectedState(''); 
                 if (!isDistrictLocked) setSelectedDistrict(''); 
-                setSelectedAssembly('');
+                if (!isAssemblyLocked) setSelectedAssembly('');
                 if (!isOfficeLocked) setSelectedOffice('');
+
                 setStatusFilter('ALL'); 
                 setPlacementFilter('');
                 setStreamIdFilter('');
