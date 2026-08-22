@@ -38,7 +38,8 @@ const getAuditLogs = asyncHandler(async (req, res) => {
           OR: [
             { stateId: { in: req.scope.stateIds } },
             { district: { stateId: { in: req.scope.stateIds } } },
-            { office: { district: { stateId: { in: req.scope.stateIds } } } }
+            { assembly: { district: { stateId: { in: req.scope.stateIds } } } },
+            { office: { assembly: { district: { stateId: { in: req.scope.stateIds } } } } }
           ]
         }
       }

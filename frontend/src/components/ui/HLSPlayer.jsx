@@ -41,9 +41,10 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
         enableWorker: true,
         lowLatencyMode: true,
         backBufferLength: 5,
-        liveSyncDurationCount: 2,
-        liveMaxLatencyDurationCount: 3,
+        liveSyncDurationCount: 3,      // Wait for 3 chunks before playing (healthy buffer)
+        liveMaxLatencyDurationCount: 6, // Allow up to 6 chunks of latency before hls.js corrects it
         liveBackBufferLength: 0,
+        maxLiveSyncPlaybackRate: 1.1,  // Speed up very gently (10%) to catch up without stuttering
       });
       hlsRef.current = hls;
       hls.loadSource(src);
@@ -82,18 +83,27 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
           if (video.paused) {
             video.play().catch(() => {});
           }
-          if (hlsRef.current && hlsRef.current.liveSyncPosition) {
-            const lag = hlsRef.current.liveSyncPosition - video.currentTime;
-            if (lag > 5) { // If more than 5s behind, jump to live
-              video.currentTime = hlsRef.current.liveSyncPosition;
-            }
-          }
         }
       };
       document.addEventListener('visibilitychange', handleVisibility);
 
+      // Gentle Drift Correction (runs every 5 seconds)
+      const driftInterval = setInterval(() => {
+        if (!video.paused && video.buffered && video.buffered.length > 0) {
+          const bufferEnd = video.buffered.end(video.buffered.length - 1);
+          const lag = bufferEnd - video.currentTime;
+          
+          // If we drift more than 20 seconds behind, we jump forward.
+          // BUT we jump to 8 seconds behind the edge, giving it a healthy buffer so it never stutters!
+          if (lag > 20) {
+            video.currentTime = bufferEnd - 8;
+          }
+        }
+      }, 5000);
+
       return () => { 
         document.removeEventListener('visibilitychange', handleVisibility);
+        clearInterval(driftInterval);
         hls.destroy(); 
         hlsRef.current = null; 
       };
@@ -178,7 +188,7 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
         className="w-full h-full object-fill custom-video"
         muted={isMuted}
         playsInline
-        controls={state === 'playing'}
+        controls
         onVolumeChange={() => {
           if (videoRef.current) setIsMuted(videoRef.current.muted || videoRef.current.volume === 0);
         }}
@@ -215,9 +225,6 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
           </div>
           
           <div className="absolute top-2 right-2 flex items-center gap-2">
-            <button onClick={toggleMute} className="bg-black/60 px-2 py-1.5 rounded text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100 font-mono text-xs shadow-md border border-slate-600">
-              {isMuted ? '🔇 UNMUTE' : '🔊 MUTE'}
-            </button>
             <button onClick={toggleFullscreen} className="bg-black/60 p-1.5 rounded text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100" title="Full Screen">
               <Maximize size={14} />
             </button>
