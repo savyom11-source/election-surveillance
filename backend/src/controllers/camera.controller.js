@@ -88,6 +88,39 @@ const getCameras = asyncHandler(async (req, res) => {
     select: cameraSelect,
   });
 
+  // --- TARGET ONLINE PADDING LOGIC ---
+  const stateIds = [...new Set(allCameras.map(c => c.office?.assembly?.district?.state?.id).filter(Boolean))];
+  if (stateIds.length > 0) {
+    const states = await prisma.state.findMany({
+      where: { id: { in: stateIds } },
+      select: { id: true, targetOnlineCount: true }
+    });
+    const stateTargets = {};
+    states.forEach(s => { stateTargets[s.id] = s.targetOnlineCount || 0; });
+
+    for (const stateId of stateIds) {
+      const target = stateTargets[stateId];
+      if (target > 0) {
+        const stateCameras = allCameras.filter(c => c.office?.assembly?.district?.state?.id === stateId);
+        const activeCount = stateCameras.filter(c => c.status === 'ACTIVE').length;
+        
+        if (activeCount < target) {
+          const needed = target - activeCount;
+          const offlineCameras = stateCameras.filter(c => c.status !== 'ACTIVE');
+          
+          // Sort deterministically by ID so the fake buffering doesn't jump randomly between cameras on refresh
+          offlineCameras.sort((a, b) => a.id.localeCompare(b.id));
+          
+          for (let i = 0; i < Math.min(needed, offlineCameras.length); i++) {
+            offlineCameras[i].status = 'ACTIVE';
+            offlineCameras[i].isFakeActive = true;
+          }
+        }
+      }
+    }
+  }
+  // --- END PADDING LOGIC ---
+
   // Custom Sort: ACTIVE -> NOT_CONNECTED -> INACTIVE
   const statusWeight = { 'ACTIVE': 1, 'NOT_CONNECTED': 2, 'INACTIVE': 3 };
   

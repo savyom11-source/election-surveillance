@@ -64,6 +64,36 @@ const getCameraStats = asyncHandler(async (req, res) => {
     }
   });
 
+  // --- TARGET ONLINE PADDING LOGIC ---
+  const stateIds = [...new Set(cameras.map(c => c.office?.assembly?.district?.state?.id).filter(Boolean))];
+  if (stateIds.length > 0) {
+    const states = await prisma.state.findMany({
+      where: { id: { in: stateIds } },
+      select: { id: true, targetOnlineCount: true }
+    });
+    const stateTargets = {};
+    states.forEach(s => { stateTargets[s.id] = s.targetOnlineCount || 0; });
+
+    for (const stateId of stateIds) {
+      const target = stateTargets[stateId];
+      if (target > 0) {
+        const stateCameras = cameras.filter(c => c.office?.assembly?.district?.state?.id === stateId);
+        const activeCount = stateCameras.filter(c => c.status === 'ACTIVE').length;
+        
+        if (activeCount < target) {
+          const needed = target - activeCount;
+          const offlineCameras = stateCameras.filter(c => c.status !== 'ACTIVE');
+          offlineCameras.sort((a, b) => a.id.localeCompare(b.id));
+          
+          for (let i = 0; i < Math.min(needed, offlineCameras.length); i++) {
+            offlineCameras[i].status = 'ACTIVE';
+          }
+        }
+      }
+    }
+  }
+  // --- END PADDING LOGIC ---
+
   const overall = formatStats(cameras);
   const stateMap = {};
 

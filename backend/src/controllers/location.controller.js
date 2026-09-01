@@ -72,7 +72,7 @@ const createState = asyncHandler(async (req, res) => {
 
 const updateState = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, code, isActive } = req.body;
+  const { name, code, isActive, targetOnlineCount } = req.body;
 
   const existing = await prisma.state.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('State not found');
@@ -129,6 +129,7 @@ const updateState = asyncHandler(async (req, res) => {
       ...(name !== undefined && { name }),
       ...(code !== undefined && { code }),
       ...(isActive !== undefined && { isActive }),
+      ...(targetOnlineCount !== undefined && { targetOnlineCount: targetOnlineCount === '' ? null : parseInt(targetOnlineCount) }),
     },
   });
 
