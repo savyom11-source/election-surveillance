@@ -26,14 +26,14 @@ const { buildCameraScopeFilter, checkCameraAccess } = require('../middleware/rba
 function formatCamera(camera) {
   return {
     ...camera,
-    hlsUrl: generateHlsUrl(camera.streamUrl),
+    hlsUrl: generateHlsUrl(camera.streamUrl, camera.mediaMtxUrl),
   };
 }
 
 // Shared Prisma select — always include streamUrl internally
 const cameraSelect = {
   id: true, name: true, description: true,
-  streamUrl: true, streamType: true,
+  streamUrl: true, streamType: true, mediaMtxUrl: true,
   status: true, isActive: true, placement: true,
   prbhNo: true, boothNumber: true, serialNo: true, cloudId: true,
   createdAt: true, updatedAt: true, officeId: true,
@@ -238,11 +238,34 @@ const createCamera = asyncHandler(async (req, res) => {
   // Auto-detect stream type if not provided
   const resolvedType = streamType || detectStreamType(streamUrl);
 
+  // --- AUTO-BALANCING LOGIC ---
+  // Count how many cameras are currently assigned to each node
+  const cameraCounts = await prisma.camera.groupBy({
+    by: ['mediaMtxUrl'],
+    _count: { mediaMtxUrl: true },
+  });
+
+  const nodes = env.mediaMtx.nodes;
+  let leastLoadedNode = nodes[0];
+  let minCount = Infinity;
+
+  // Find the node with the lowest count
+  for (const node of nodes) {
+    const stat = cameraCounts.find(c => c.mediaMtxUrl === node);
+    const count = stat ? stat._count.mediaMtxUrl : 0;
+    if (count < minCount) {
+      minCount = count;
+      leastLoadedNode = node;
+    }
+  }
+  // --- END AUTO-BALANCING LOGIC ---
+
   const camera = await prisma.camera.create({
     data: {
       name,
       description,
       streamUrl,
+      mediaMtxUrl: leastLoadedNode,
       streamType: resolvedType,
       status: status || 'ACTIVE',
       officeId,

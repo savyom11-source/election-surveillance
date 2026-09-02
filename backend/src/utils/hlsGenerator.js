@@ -28,7 +28,7 @@ const env = require('../config/env');
  * @param {string} streamUrl - RTMP or RTSP URL
  * @returns {string} HLS playback URL
  */
-function generateHlsUrl(streamUrl) {
+function generateHlsUrl(streamUrl, cameraMediaMtxUrl = null) {
   if (!streamUrl) return null;
 
   try {
@@ -44,7 +44,8 @@ function generateHlsUrl(streamUrl) {
     // Remove empty segments
     if (!path) return null;
 
-    const mediaMtxServer = env.mediaMtx.server.replace(/\/$/, '');
+    let baseServer = cameraMediaMtxUrl || env.mediaMtx.server;
+    const mediaMtxServer = baseServer.replace(/\/$/, '');
 
     return `${mediaMtxServer}/${path}/index.m3u8`;
   } catch {

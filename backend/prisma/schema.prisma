@@ -115,6 +115,7 @@ model Camera {
   name        String
   description String?
   streamUrl   String
+  mediaMtxUrl String?
   streamType  StreamType       @default(RTMP)
   status      StreamStatus     @default(NOT_CONNECTED)
   placement   CameraPlacement?

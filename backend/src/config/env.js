@@ -23,6 +23,7 @@ module.exports = {
   },
   mediaMtx: {
     server: process.env.MEDIAMTX_SERVER || 'http://localhost:8888',
+    nodes: process.env.MEDIA_MTX_NODES ? process.env.MEDIA_MTX_NODES.split(',').map(n => n.trim()) : ['http://localhost:8888'],
   },
   cors:      { origin: process.env.CORS_ORIGIN || 'http://localhost:3000' },
   rateLimit: {
