@@ -26,7 +26,7 @@ function Modal({ title, onClose, children }) {
 
 // ---- State Form ----
 function StateForm({ initial = {}, onSubmit, onClose, loading }) {
-  const [form, setForm] = useState({ name: '', code: '', ...initial });
+  const [form, setForm] = useState({ name: '', code: '', targetOnlineCount: '', ...initial });
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div className="form-group">
@@ -36,6 +36,11 @@ function StateForm({ initial = {}, onSubmit, onClose, loading }) {
       <div className="form-group">
         <label className="form-label">State Code</label>
         <input className="form-input" placeholder="e.g. RJ" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={10} />
+      </div>
+      <div className="form-group">
+        <label className="form-label">Target Online Cameras (Padding)</label>
+        <input className="form-input" type="number" placeholder="e.g. 70" value={form.targetOnlineCount ?? ''} onChange={(e) => setForm({ ...form, targetOnlineCount: e.target.value })} />
+        <span style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>Leave blank for no padding. If set, offline cameras will fake buffer to hit this target.</span>
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
         <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => onSubmit(form)} disabled={loading}>

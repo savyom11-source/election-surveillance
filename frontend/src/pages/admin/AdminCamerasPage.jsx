@@ -105,6 +105,15 @@ function CameraForm({ initial = {}, onSubmit, onClose, loading }) {
             <div style={{ fontFamily: 'Share Tech Mono', fontSize: 11, color: 'var(--text-dim)' }}>{hlsPreview}</div>
           </div>
         )}
+        
+        {/* Assigned Shard */}
+        {form.mediaMtxUrl && (
+          <div style={{ marginTop: 10, padding: '8px 12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: 4 }}>
+            <div style={{ fontFamily: 'Barlow Condensed', fontWeight: 600, fontSize: 13, color: 'var(--text-bright)', letterSpacing: 0.5, marginBottom: 2 }}>ASSIGNED SERVER (ELASTIC IP):</div>
+            <div style={{ fontFamily: 'Share Tech Mono', fontSize: 12, color: 'var(--accent1)' }}>{form.mediaMtxUrl}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>⚠️ Instruct installers to push physical RTMP stream to this server IP.</div>
+          </div>
+        )}
       </div>
 
       <div className="form-group">
@@ -271,7 +280,7 @@ export default function AdminCamerasPage() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Camera</th><th>Office</th><th>State</th><th>Type</th><th>HLS Status</th><th>Status</th><th>Actions</th></tr>
+                <tr><th>Camera</th><th>Office</th><th>State</th><th>Type</th><th>Server (Shard)</th><th>HLS Status</th><th>Status</th><th>Actions</th></tr>
               </thead>
               <tbody>
                 {filtered.map((cam) => (
@@ -285,6 +294,11 @@ export default function AdminCamerasPage() {
                     <td>{cam.office?.name}</td>
                     <td><span className="badge badge-blue">{cam.office?.district?.state?.code}</span></td>
                     <td><span className={`badge ${TYPE_BADGE[cam.streamType] || 'badge-dim'}`}>{cam.streamType}</span></td>
+                    <td>
+                      {cam.mediaMtxUrl 
+                        ? <div style={{ fontFamily: 'Share Tech Mono', fontSize: 10, color: 'var(--accent1)' }}>{cam.mediaMtxUrl.replace('https://', '').replace('http://', '')}</div>
+                        : <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>Auto-assigning...</span>}
+                    </td>
                     <td>
                       {cam.hlsUrl
                         ? <span className="badge badge-green">✓ Ready</span>

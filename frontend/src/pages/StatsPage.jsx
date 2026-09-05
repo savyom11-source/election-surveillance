@@ -180,25 +180,10 @@ export default function StatsPage() {
                           </div>
                         )}
 
-                        <div className={`flex flex-col gap-6 mt-4 ${showDistrictHeader ? 'pl-4' : ''}`}>
-                          {district.assemblies.map(assembly => {
-                            const showAssemblyHeader = ['SUPER_ADMIN', 'STATE_ADMIN', 'DISTRICT_OBSERVER', 'ASSEMBLY_OBSERVER'].includes(user?.role);
-                            return (
-                            <div key={assembly.id} className={showAssemblyHeader && (showDistrictHeader || showStateHeader) ? "border-l-2 border-dark-600 pl-6" : ""}>
-                              {showAssemblyHeader && (
-                                <div className="flex items-center justify-between mb-4">
-                                  <h4 className="text-md font-semibold text-slate-300 uppercase tracking-wide">{assembly.name} Assembly</h4>
-                                  <MiniStats stats={assembly.stats} />
-                                </div>
-                              )}
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                  {assembly.offices.map(office => (
-                                    <RegionCard key={office.id} region={office} />
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })}
+                        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 ${showDistrictHeader ? 'pl-4' : ''}`}>
+                          {district.assemblies.map(assembly => (
+                            <RegionCard key={assembly.id} region={{ name: `${assembly.name} Assembly`, stats: assembly.stats }} />
+                          ))}
                         </div>
                       </div>
                     );

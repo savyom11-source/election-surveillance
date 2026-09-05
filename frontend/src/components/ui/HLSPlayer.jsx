@@ -11,7 +11,7 @@ import * as cocoSsd from '@tensorflow-models/coco-ssd';
 let tfModel = null;
 let modelLoading = false;
 
-export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcountUpdate, crowdThreshold = 10, children }) {
+export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcountUpdate, crowdThreshold = 10, isFakeActive = false, children }) {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
@@ -29,6 +29,11 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
   };
 
   useEffect(() => {
+    if (isFakeActive) {
+      setState('loading');
+      return;
+    }
+
     if (!src) { setState('offline'); return; }
 
     const video = videoRef.current;
@@ -139,7 +144,7 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
 
   // AI Crowd Detection
   useEffect(() => {
-    if (!autoPlay || state !== 'playing') return;
+    if (isFakeActive || !autoPlay || state !== 'playing') return;
 
     if (!tfModel && !modelLoading) {
       modelLoading = true;
@@ -198,7 +203,7 @@ export default function HLSPlayer({ src, cameraName, autoPlay = true, onHeadcoun
       {state === 'loading' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-dark-900/90">
           <Loader2 className="w-6 h-6 text-primary-400 animate-spin mb-2" />
-          <p className="text-xs font-mono text-slate-500">Connecting...</p>
+          <p className="text-xs font-mono text-slate-500">{isFakeActive ? 'Buffering...' : 'Connecting...'}</p>
         </div>
       )}
 

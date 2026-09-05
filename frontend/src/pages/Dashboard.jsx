@@ -407,7 +407,7 @@ export default function Dashboard({ isStandalone = false }) {
               onClick={() => setExpandedCamera(expandedCamera === cam.id ? null : cam.id)}>
               <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 {cam.status === 'ACTIVE' && cam.hlsUrl ? (
-                  <HLSPlayer src={cam.hlsUrl} autoPlay={true} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} crowdThreshold={crowdThreshold} />
+                  <HLSPlayer src={cam.hlsUrl} isFakeActive={cam.isFakeActive} autoPlay={true} onHeadcountUpdate={(count) => setHeadcounts(prev => ({ ...prev, [cam.id]: count }))} crowdThreshold={crowdThreshold} />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--text-dim)' }}>
                     <AlertCircle size={28} />
