@@ -34,6 +34,7 @@ function formatCamera(camera) {
 const cameraSelect = {
   id: true, name: true, description: true,
   streamUrl: true, streamType: true, mediaMtxUrl: true,
+
   status: true, isActive: true, placement: true,
   prbhNo: true, boothNumber: true, serialNo: true, cloudId: true,
   createdAt: true, updatedAt: true, officeId: true,
@@ -168,7 +169,7 @@ const getStreamUrl = asyncHandler(async (req, res) => {
 
   const camera = await prisma.camera.findUnique({
     where: { id },
-    select: { id: true, name: true, streamUrl: true, streamType: true, status: true, isActive: true },
+    select: { id: true, name: true, streamUrl: true, mediaMtxUrl: true, streamType: true, status: true, isActive: true },
   });
 
   if (!camera)          throw new NotFoundError('Camera not found');
@@ -193,7 +194,7 @@ const getStreamUrl = asyncHandler(async (req, res) => {
     });
   }
 
-  const hlsUrl = generateHlsUrl(camera.streamUrl);
+  const hlsUrl = generateHlsUrl(camera.streamUrl, camera.mediaMtxUrl);
 
   // Log access to audit trail
   await logAudit({

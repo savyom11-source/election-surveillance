@@ -29,6 +29,7 @@ const env = require('../config/env');
  * @returns {string} HLS playback URL
  */
 function generateHlsUrl(streamUrl, cameraMediaMtxUrl = null) {
+
   if (!streamUrl) return null;
 
   try {
@@ -46,6 +47,7 @@ function generateHlsUrl(streamUrl, cameraMediaMtxUrl = null) {
 
     let baseServer = cameraMediaMtxUrl || env.mediaMtx.server;
     const mediaMtxServer = baseServer.replace(/\/$/, '');
+
 
     return `${mediaMtxServer}/${path}/index.m3u8`;
   } catch {
